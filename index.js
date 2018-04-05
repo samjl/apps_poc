@@ -1,0 +1,54 @@
+let app = require('express')();
+let http = require('http').Server(app);
+let io = require('socket.io')(http);
+let port = process.env.PORT || 3000;
+const MongoClient = require("mongodb").MongoClient;
+const db_name = "proto";
+const collection = "testlogs"
+let _db;
+let _local;
+
+
+app.get('/', function(req, res){
+  res.sendFile(__dirname + '/index.html');
+});
+
+io.on('connection', function(socket){
+  console.log("Connected - dev")
+  console.log("Start tailing the oplog")
+  _local.collection('oplog.rs', function (err, coll) {
+    let stream = coll.find({"ns": db_name+"."+collection},
+                           { tailable: true,
+                             awaitdata: true,
+                             numberOfRetries: Number.MAX_VALUE
+                           }).stream();
+
+    stream.on('data', function(val) {
+      console.log('Doc: %j',val);
+      // modified from original io.emit that would broadcast to all connected clients
+      socket.emit('chat message', val);
+    });
+
+    stream.on('error', function(val) {
+      console.log('Error: %j', val);
+    });
+
+    stream.on('end', function(){
+      console.log('End of stream');
+    });
+  });
+});
+
+// connect to mongoDB database
+MongoClient.connect("mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rstest", (err, database) => {
+  // ... start the server
+  if (err) {
+    return console.log(err);
+  }
+  console.log("Connected to db");
+  _db = database.db(db_name);
+  _local = database.db("local")
+  http.listen(port, function(){
+    console.log('listening on *:' + port);
+  });
+})
