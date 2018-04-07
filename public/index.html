@@ -1,21 +1,13 @@
 <!doctype html>
 <html>
   <head>
-    <title>Socket.IO chat</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font: 13px Helvetica, Arial; }
-      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
-      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
-      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
-      #messages { list-style-type: none; margin: 0; padding: 0; }
-      #messages li { padding: 5px 10px; }
-      #messages li:nth-child(odd) { background: #eee; }
-      #messages { margin-bottom: 40px }
-    </style>
+    <title>MongoDB - Socket.IO - Live Test Logging</title>
+    <link rel="stylesheet" type="text/css" href="css/draw.css">
+    <script src='js/msgTemplate.js' type='text/javascript'></script>
   </head>
   <body>
     <ul id="messages"></ul>
+    <div id="main"></div>
     <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <!-- not same socket.io version as defined in package.json -->
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
@@ -23,29 +15,8 @@
       $(function () {
         let socket = io();
         socket.on('chat message', function(msg){
-          console.log(msg)
-          let out;
-          if (msg.o.hasOwnProperty("index")) {
-            // A new message
-            out = msg.o._id + " --- " +
-                  msg.o.index + " " +
-                  msg.o.level + "-" +
-                  msg.o.step + " " +
-                  msg.o.timestamp + ": " +
-                  msg.o.message;
-            if (msg.o.hasOwnProperty("parents")) {
-              out += " parents:" + msg.o.parents;
-            }
-            // No children if live logging - msg could have children if retrieving existing log
-            if (msg.o.hasOwnProperty("numOfChildren")) {
-              out += ", #children:" + msg.o.numOfChildren;
-            }
-          } else {
-            // An update to a message already received
-            out = msg.o2._id +
-                  " --- #children: " + msg.o.$set.numOfChildren;
-          }
-          $('#messages').append($('<li>').text(out));
+          // console.log(msg)
+          $('#main').append(applyTemplate(msg));
           window.scrollTo(0, document.body.scrollHeight);
         });
       });

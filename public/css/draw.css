@@ -1,0 +1,181 @@
+html, body {
+	height: 100%;
+	margin: 0;
+}
+
+h1, p {
+	margin: 0;
+	font-family: "Courier New", Courier, monospace;
+	font-size: medium;
+}
+
+pre {
+	background-color: transparent;
+	margin: 0;
+	padding: 0;
+	border: none;
+	font-family: "Courier New", Courier, monospace;
+	font-size: medium;
+}
+
+#container {
+	display: flex;
+	flex-flow: column;
+	height: 100%
+}
+
+#controls {
+	flex: 0 1 auto;
+	margin: 2px;
+}
+
+#content {
+	flex: 1 1 auto;
+	margin: 2px;
+}
+
+.containerMessage, .containerNoFold, .containerFold, .timestamp, .logLevel, .levelStep, .source { /* .index, */
+	height: 22px;
+	cursor: default;
+	display: flex;
+	flex-flow: row no-wrap;
+	justify-content: center;
+	align-content: center;
+	align-items: center;
+}
+
+.index {
+	height: 21px;
+	border-bottom: 1px solid black;
+	cursor: default;
+	display: flex;
+	flex-flow: row no-wrap;
+	justify-content: center;
+	align-content: center;
+	align-items: center;
+}
+
+.idxInd {
+	height: 21px;
+	border-bottom: 1px solid red;
+	cursor: default;
+	display: flex;
+	flex-flow: row no-wrap;
+	justify-content: center;
+	align-content: center;
+	align-items: center;
+}
+
+.spacer {
+	height: 22px;
+	width: 0;
+	padding: 0;
+	margin: 0;
+}
+
+.containerMessage {
+	height: 22px;
+	width: 100%;
+	/*margin-bottom: 1px; Causes issues with scrolling to bottom of log */
+	justify-content: flex-start;
+}
+
+.index, .idxInd {
+	flex: 0 0 40px;
+	margin-right: 2px;
+	background:black;
+	justify-content:center;
+	color:white;
+	font-size: small;
+	cursor: default;
+	padding-left: 2px;
+	padding-right: 2px;
+}
+
+.timestamp {
+	flex: 0 0 130px;
+	margin-right: 2px;
+	background: #303030;
+	color: white;
+}
+
+.triangle-topright {
+	width: 0;
+	height: 0;
+	margin-right: 2px;
+	border-top: 22px solid #505050;
+	border-left: 22px solid transparent;
+}
+
+.containerNoFold, .containerFold {
+	flex: 0 0 22px;
+	margin-right: 2px;
+	background: #505050;
+	color: #F8F8F8;
+	-webkit-transition: background 0.5s, color 0.5s; /* Safari */
+	transition: background 0.5s, color 0.5s;
+}
+
+.containerFold:hover {
+	background: #C8C8C8;
+	color: #303030;
+	cursor: pointer;
+}
+
+.logLevel {
+	flex: 0 0 22px;
+	margin-right: 0px;
+	background: grey;
+	color: white;
+}
+
+.levelStep {
+	flex: 0 0 22px;
+	margin-right: 0px;
+	background: grey;
+	/*color: white;*/
+	font-size: small;
+}
+
+.triangle-right {
+	width: 0;
+	height: 0;
+	margin-right: 2px;
+	border-top: 11px solid transparent;
+	border-left: 12px solid grey;
+	border-bottom: 11px solid transparent;
+}
+
+.None, .Fail, .Warn, .Pass  {
+	margin-right: 2px;
+	height: auto;
+	cursor: text;
+}
+
+.Fail {
+	color: red;
+}
+
+.Warn {
+	color: orange;
+}
+
+.Pass {
+	color: green;
+}
+
+.source {
+	width:auto;
+	font-size: small;
+	color: white;
+	white-space: nowrap;
+	flex-flow: row-reverse no-wrap;
+	flex-grow: 1;
+	justify-content: flex-end;
+}
+
+.sourceText {
+	padding-left: 4px;
+	padding-right: 4px;
+	background:darkCyan;
+}

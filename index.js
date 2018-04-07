@@ -1,4 +1,5 @@
-let app = require('express')();
+let express = require('express');
+let app = express();
 let http = require('http').Server(app);
 let io = require('socket.io')(http);
 let port = process.env.PORT || 3000;
@@ -10,12 +11,20 @@ let _local;
 
 
 app.get('/', function(req, res){
-  res.sendFile(__dirname + '/index.html');
+  res.sendFile(__dirname + '/public/index.html');
 });
+// Client access to all static cpntent (public dir)
+app.use(express.static(__dirname + '/public'));
 
 io.on('connection', function(socket){
   console.log("Connected - dev")
   console.log("Start tailing the oplog")
+  // This gets all the matching entries in the complete oplog not just the new ones
+  // so unsure how this will work for connections to tests already running
+  // some logs in db already some updates
+  // How to ensure you get all records - some inserts might already have gone from oplog
+  // Start oplog tail and collect entries, get entries from db, ignore oplog entries
+  // retrieved from the db, continue to scan the oplog
   _local.collection('oplog.rs', function (err, coll) {
     let stream = coll.find({"ns": db_name+"."+collection},
                            { tailable: true,
