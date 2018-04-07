@@ -35,7 +35,8 @@ io.on('connection', function(socket){
     stream.on('data', function(val) {
       console.log('Doc: %j',val);
       // modified from original io.emit that would broadcast to all connected clients
-      socket.emit('chat message', val);
+      socket.emit('log message', val);
+      // TODO split into new messages and updates to existing
     });
 
     stream.on('error', function(val) {

@@ -14,7 +14,7 @@
     <script>
       $(function () {
         let socket = io();
-        socket.on('chat message', function(msg){
+        socket.on('log message', function(msg){
           // console.log(msg)
           $('#main').append(applyTemplate(msg));
           window.scrollTo(0, document.body.scrollHeight);
