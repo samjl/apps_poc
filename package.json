@@ -9,8 +9,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "clusterize.js": "^0.18.1",
+    "console-stamp": "^0.2.6",
     "express": "^4.15.2",
     "mongodb": "^2.2.33",
-    "socket.io": "^1.7.4"
+    "socket.io": "^1.7.4",
+    "utf8": "^3.0.0"
   }
 }
