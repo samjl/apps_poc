@@ -36,7 +36,11 @@ $(window).ready(function(){
         newDomDiv = applyTemplate(value);
         allData.push(newDomDiv);
       })
-      clusterize.update(allData);
+      clusterize.update(allData); // TODO could use .append here until the data is fully loaded?
+      clusterize.refresh(true)  // refresh to update the row heights
+      // refresh seems to fix the following issues:
+      // not being able to scroll to bottom/flickering
+      // skipping records when scrolling past cluster transitions
     });
     socket.on('html', function(html){
       clusterize.update(html);
