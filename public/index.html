@@ -11,8 +11,33 @@
     <script src="js/clusterize.min.js"></script>
     <script src='js/msgTemplate.js' type='text/javascript'></script>
     <script src="js/processRx.js"></script>
+    <script src="js/controls.js"></script>
   </head>
+
   <div id="container">
+    <div id="controls">
+      <label for="toggleIndex" style="font-size: small">Index</label><input type="checkbox" id="toggleIndex" onclick="showHideIndex()" checked>
+      <label for="toggleTimestamp" style="font-size: small">Timestamp</label><input type="checkbox" id="toggleTimestamp" onclick="showHideTimestamp()" unchecked>
+
+      <label for="foldUnfoldAll" style="font-size: small">Fold All</label><input type="checkbox" id="foldUnfoldAll" onclick="foldUnfoldAll()" unchecked>
+
+      <label for="maxLevelDisplay" style="font-size: small">Fold to level</label>
+      <select id="maxLevelDisplay" onclick="hideLevels(this)">
+        <option value="5">5 (All Levels)</option>
+        <option value="4">4</option>
+        <option value="3">3</option>
+        <option value="2">2</option>
+        <option value="1">1</option>
+      </select>
+
+
+      <label for="toggleFoldControls" style="font-size: small">Fold Controls</label><input type="checkbox" id="toggleFoldControls" onclick="showHideFoldControls()" checked>
+      <label for="toggleTabs" style="font-size: small">Level Tabs</label><input type="checkbox" id="toggleTabs" onclick="showHideTabs()" checked>
+      <label for="toggleLevels" style="font-size: small">Level Numbers</label><input type="checkbox" id="toggleLevels" onclick="showHideLevelIndicators()" checked>
+      <label for="toggleLevelStep" style="font-size: small">Level Step</label><input type="checkbox" id="toggleLevelStep" onclick="showHideStepIndicators()" unchecked>
+      <label for="toggleBasic" style="font-size: small">Basic Log</label><input type="checkbox" id="toggleBasic" onclick="showBasicLog()" unchecked>
+      <label for="devDebug" style="font-size: small">Dev Debug</label><input type="checkbox" id="devDebug" onclick="showDevDebug()" unchecked>
+    </div>
     <div id="content">
       <div id="scrollArea" class="clusterize-scroll">
         <div id="contentArea" class="clusterize-content">
@@ -20,5 +45,7 @@
         </div>
       </div>
     </div>
+    <div id="basic"></div>
   </div>
+
 </html>
