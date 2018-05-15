@@ -104,7 +104,7 @@ function retrieveTestHtml(socket) {
 }
 
 // connect to mongoDB database
-MongoClient.connect("mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rstest", (err, database) => {
+MongoClient.connect("mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSet=replSet1", (err, database) => {
   // ... start the server
   if (err) {
     return console.log(err);
