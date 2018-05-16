@@ -6,7 +6,7 @@ function getMarkup(msgData) {
     levelChangeDisplay = getDisplay(userControls.tabs);
   return `
   <div id="msg${msgData.index}" class="containerMessage" style="background: #DDDDDD" index="${msgData.index}">
-    <p class="debug" title="developer info" style="display: ${getDisplay(userControls.dev)}">${msgData._id}:${msgData.parents}</p>
+    <p class="debug" title="developer info" style="display: ${getDisplay(userControls.dev)}">${msgData._id} [${msgData.parents}] [${msgData.parentIndices}] : ${msgData.numOfChildren}</p>
     <p class=${msgData.indexClass} title="Message Index" style="display: ${getDisplay(userControls.index)}">${msgData.index}</p>
     <p class="timestamp" title="Timestamp" style="display: ${getDisplay(userControls.ts)}">${msgData.timestamp}</p>
     <span class="spacer" style="display: ${getDisplay(userControls.tabs)};margin-left: ${msgData.levelDisplay.spacerWidth}px"></span>

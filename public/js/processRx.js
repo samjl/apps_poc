@@ -79,9 +79,10 @@ function constructMessage(rxMsg) {
     indexClass: "index",
     levelDisplay: getSpacerWidth(rxMsg.level, rxMsg.step),
     // Debug
-    parentIndices: rxMsg.getParents,
+    parentIndices: rxMsg.parentIndices,
     _id: rxMsg._id.slice(-4),
     parents: rxMsg.parents.map(function(item) {
+      // Used for debugging only - client side only uses the message indices above
       return item.slice(-4);
     }),
   };
@@ -201,7 +202,7 @@ $(window).ready(function(){
     // 1+ (already inserted) messages
     socket.on('saved messages', function(docs){
       // TODO check for duplicate messages
-      // console.log(docs.length + " messages received")
+      console.log(docs.length + " messages received")
       docs.forEach(function (value) {
         let msg = constructMessage(value);
         allMsgs.push(msg);

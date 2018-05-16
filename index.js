@@ -49,7 +49,7 @@ function tailOplog(socket) {
       // console.log('Doc: %j',val);
       // modified from original io.emit that would broadcast to all connected clients
       socket.emit('log message', val);
-      // TODO split into new messages and updates to existing
+      // TODO split into new messages and updates to existing parents
     });
 
     stream.on('error', function(val) {
@@ -74,7 +74,7 @@ function retrieveTestLogParts(socket) {
   _db.collection(collection).find().toArray(function(err, docs) {
     console.log("Found " + docs.length);
     while (docs.length> 0) {
-      // console.log(docs.splice(0, 10))
+      // Currently 500 message chunks gives the best client side performance
       socket.emit('saved messages', docs.splice(0, 500));
     }
     console.log("Done")
