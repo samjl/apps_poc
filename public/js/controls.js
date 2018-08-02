@@ -25,6 +25,7 @@ function foldUnfoldAll() {
 
 function hideLevels(selector) {
   let level = selector.value;
+  // TODO? add level to userControls instead so it can be done at the templating stage
   // TODO change 1 to min
   if (level > 1) {
     userControls.foldAll = false;
@@ -76,10 +77,23 @@ function showBasicLog() {
 }
 
 function showDevDebug() {
+  // Note: unfolds all
+  activeMsgIndices = [];
+  if ($("#devDebug:checked").val() === "on") {
+    allMsgs.forEach(function (msg) {
+      activeMsgIndices.push(msg.index);
+    });
+  } else {
+    allMsgs.forEach(function (msg) {
+      if (!msg.message.startsWith("DEBUG(")) {
+        activeMsgIndices.push(msg.index);
+      }
+    });
+  }
+  updateActive();
 }
 
 function foldToLevel(level) {
-  activeHtml = [];
   activeMsgIndices= [];
   allMsgs.forEach(function (msg, index) {
     if (msg.numOfChildren > 0) {
