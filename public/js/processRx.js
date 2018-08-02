@@ -116,6 +116,7 @@ function getDisplay(control) {
 function updateActive() {
   // Reapply all global controls to template for every active (unfolded) message
   // Currently folded messages are updated with the global control state when they are unfolded (made active)
+  activeHtml = [];  // Required for level filtering
   for (let i=0; i<activeMsgIndices.length; i++) {
     activeHtml[i] = getMarkup(allMsgs[activeMsgIndices[i]-1]);
   }
