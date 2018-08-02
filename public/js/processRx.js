@@ -118,7 +118,8 @@ function updateActive() {
   // Currently folded messages are updated with the global control state when they are unfolded (made active)
   activeHtml = [];  // Required for level filtering
   for (let i=0; i<activeMsgIndices.length; i++) {
-    activeHtml[i] = getMarkup(allMsgs[activeMsgIndices[i]-1]);
+    let allMsgsPosition = activeMsgIndices[i]-allMsgs[0].index;
+    activeHtml[i] = getMarkup(allMsgs[allMsgsPosition]);
   }
   clusterize.update(activeHtml);
   clusterize.refresh(true);
@@ -140,18 +141,20 @@ $(window).ready(function(){
     let clickedMsgIndex = parseInt(this.id.slice(3, -4));
     // Update the parent message
     console.log("clicked message: " + clickedMsgIndex);
-    console.log("current child fold state is " + allMsgs[clickedMsgIndex-1].foldState);
-    console.log("number of children to process: " + allMsgs[clickedMsgIndex-1].numOfChildren);
-    let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex)
-    if (allMsgs[clickedMsgIndex-1].foldState) {
-      console.log("update clicked element (parent) to unfold, active index: " + activeIndex)
-      setParentUnfolded(clickedMsgIndex-1);
-      activeHtml[activeIndex] = getMarkup(allMsgs[clickedMsgIndex-1])
+    let allMsgsPosition = clickedMsgIndex-allMsgs[0].index;
+    console.log("allMsgs array position: " + allMsgsPosition);
+    console.log("current child fold state is " + allMsgs[allMsgsPosition].foldState);
+    console.log("number of children to process: " + allMsgs[allMsgsPosition].numOfChildren);
+    let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex);
+    if (allMsgs[allMsgsPosition].foldState) {
+      console.log("update clicked element (parent) to unfold, active index:" + " " + activeIndex);
+      setParentUnfolded(allMsgsPosition);
+      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition])
 
       console.log("unfold children")
       let insertActiveIndex = activeIndex + 1;
-      for (let i=clickedMsgIndex; i<=clickedMsgIndex+allMsgs[clickedMsgIndex-1].numOfChildren; i++) {
-        if (activeMsgIndices.indexOf(i+1) === -1) {
+      for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
+        if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
           // Child is not already inserted
           if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
             // Child is a parent and is folded so add it and skip its children
@@ -167,12 +170,12 @@ $(window).ready(function(){
       }
     } else {
       console.log("update clicked element (parent) to fold, active index: " + activeIndex)
-      setParentFolded(clickedMsgIndex-1);
-      activeHtml[activeIndex] = getMarkup(allMsgs[clickedMsgIndex-1])
+      setParentFolded(allMsgsPosition);
+      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition])
 
       console.log("fold children")
-      for (let i=activeIndex+1; i<=activeIndex+allMsgs[clickedMsgIndex-1].numOfChildren; i++) {
-        if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[clickedMsgIndex-1].numOfChildren) {
+      for (let i=activeIndex+1; i<=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i++) {
+        if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[allMsgsPosition].numOfChildren) {
           activeHtml.splice(activeIndex+1, 1);  // remove index for each subsequent child
           activeMsgIndices.splice(activeIndex+1, 1);
         } else {

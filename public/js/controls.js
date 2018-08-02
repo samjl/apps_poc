@@ -81,15 +81,15 @@ function showDevDebug() {
 function foldToLevel(level) {
   activeHtml = [];
   activeMsgIndices= [];
-  allMsgs.forEach(function (msg) {
+  allMsgs.forEach(function (msg, index) {
     if (msg.numOfChildren > 0) {
       if (msg.level >= level) {
         // Mark all these as folded
         console.log("Found a parent (index: " + msg.index + ", level: " + msg.level + ")");
-        setParentFolded(msg.index-1);
+        setParentFolded(index);
       } else {
         // All lower level parents are unfolded
-        setParentUnfolded(msg.index-1);
+        setParentUnfolded(index);
       }
     }
     if (msg.level <= level) {
