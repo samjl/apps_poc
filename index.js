@@ -71,13 +71,27 @@ function retrieveTestLog(socket) {
 
 function retrieveTestLogParts(socket) {
   console.log("Finding...")
-  _db.collection(collection).find().toArray(function(err, docs) {
-    console.log("Found " + docs.length);
-    while (docs.length> 0) {
-      // Currently 500 message chunks gives the best client side performance
-      socket.emit('saved messages', docs.splice(0, 500));
-    }
-    console.log("Done")
+  match = {
+    "sessionId": 1,
+    "moduleName": "example_tests/test_class_scope.py"
+  }
+  _db.collection("loglinks").findOne(match, function(err, result) {
+    if (err) throw err;
+    console.log("Found loglink doc with sessionId: " + result.sessionId +
+                ", module: " + result.moduleName + ", test: " + result.testName);
+    console.log("Number of logs: " + result.logIds.length);
+    match = {"_id": {"$in": result.logIds}};
+    // Now retrieve the logs from the list of _id's
+    _db.collection(collection).find(match).toArray(function(err, docs) {
+      if (err) throw err;
+      console.log("Found " + docs.length);
+      while (docs.length> 0) {
+        // Currently 500 message chunks gives the best client side performance
+        socket.emit('saved messages', docs.splice(0, 500));
+      }
+      console.log("Done")
+  });
+
   });
 }
 
