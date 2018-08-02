@@ -18,20 +18,25 @@ app.get('/', function(req, res){
 app.use(express.static(__dirname + '/public'));
 
 io.on('connection', function(socket){
-  console.log("Connected - dev")
+  console.log("Connected - dev");
+  socket.emit('ready'); // Signal to the client ok send the find parameters
+  socket.on('find parameters', function(data) {
+    console.log("Test log find parameters - session: " + data.session + ", module: " + data.module);
+    retrieveTestLogParts(socket, data.session, data.module);
+  });
   // Development PoC options
   // 1. Tail the oplog: get all oplogs for the collection (already existing in oplog and then tail it)
   // tailOplog(socket)
   // 2. Retrieve completed test logs from the proto db testlogs collection and emit all in one go
   // retrieveTestLog(socket)
   // 3. Retrieve completed test logs from the proto db testlogs collection then emit in sections
-  retrieveTestLogParts(socket)
+  // retrieveTestLogParts(socket)
   // 4. Retrieve completed test logs from the proto db testlogs collection, convert to HTML DOM elements and emit
   // retrieveTestHtml(socket)
 });
 
 function tailOplog(socket) {
-  console.log("Start tailing the oplog")
+  console.log("Start tailing the oplog");
   // This gets all the matching entries in the complete oplog not just the new ones
   // so unsure how this will work for connections to tests already running
   // some logs in db already some updates
@@ -64,32 +69,28 @@ function tailOplog(socket) {
 
 function retrieveTestLog(socket) {
   _db.collection(collection).find().toArray(function(err, docs) {
-    console.log("Found " + docs.length)
+    console.log("Found " + docs.length);
     socket.emit('saved messages', docs);
   });
 }
 
-function retrieveTestLogParts(socket) {
-  console.log("Finding...")
-  match = {
-    "sessionId": 1,
-    "moduleName": "example_tests/test_class_scope.py"
-  }
+function retrieveTestLogParts(socket, session, module) {
+  match = {"sessionId": parseInt(session), "moduleName": module};
   _db.collection("loglinks").findOne(match, function(err, result) {
     if (err) throw err;
     console.log("Found loglink doc with sessionId: " + result.sessionId +
                 ", module: " + result.moduleName + ", test: " + result.testName);
-    console.log("Number of logs: " + result.logIds.length);
+    console.log("Number of log links: " + result.logIds.length);
     match = {"_id": {"$in": result.logIds}};
     // Now retrieve the logs from the list of _id's
     _db.collection(collection).find(match).toArray(function(err, docs) {
       if (err) throw err;
-      console.log("Found " + docs.length);
+      console.log("Number of log message docs retrieved: " + docs.length);
       while (docs.length> 0) {
         // Currently 500 message chunks gives the best client side performance
         socket.emit('saved messages', docs.splice(0, 500));
       }
-      console.log("Done")
+      console.log("Done - all test logs emitted");
   });
 
   });

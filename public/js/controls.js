@@ -85,7 +85,7 @@ function foldToLevel(level) {
     if (msg.numOfChildren > 0) {
       if (msg.level >= level) {
         // Mark all these as folded
-        console.log("Found a parent (index: " + msg.index + ", level: " + msg.level + ")");
+        // console.log("Found a parent (index: " + msg.index + ", level: " + msg.level + ")");
         setParentFolded(index);
       } else {
         // All lower level parents are unfolded
@@ -93,7 +93,7 @@ function foldToLevel(level) {
       }
     }
     if (msg.level <= level) {
-      console.log("Min log level to fold (index: " + msg.index + ", level: " + msg.level + ")");
+      // console.log("Min log level to fold (index: " + msg.index + ", level: " + msg.level + ")");
       activeMsgIndices.push(msg.index);
     }
   })

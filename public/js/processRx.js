@@ -189,6 +189,16 @@ $(window).ready(function(){
 
   $(function () {
     let socket = io();
+
+    socket.on('ready', function() {  // data
+      let vars = {};
+      window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+        vars[key] = value;
+      });
+      console.log(vars);
+      socket.emit('find parameters', vars);
+    });
+
     // Single (live db update) log message
     socket.on('log message', function(msg){
       // Check message is a new message - just log updates to console for now
