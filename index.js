@@ -6,7 +6,7 @@ let port = process.env.PORT || 3000;
 const MongoClient = require("mongodb").MongoClient;
 require('console-stamp')(console, 'HH:MM:ss.l'); // For debug only
 const db_name = "proto";
-const collection = "testlogs"
+const collection = "testlogs";
 let _db;
 let _local;
 
@@ -14,7 +14,7 @@ let _local;
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/public/index.html');
 });
-// Client access to all static cpntent (public dir)
+// Client access to all static content (public dir)
 app.use(express.static(__dirname + '/public'));
 
 io.on('connection', function(socket){
@@ -75,7 +75,7 @@ function retrieveTestLog(socket) {
 }
 
 function retrieveTestLogParts(socket, session, module) {
-  match = {"sessionId": parseInt(session), "moduleName": module};
+  let match = {"sessionId": parseInt(session), "moduleName": module};
   _db.collection("loglinks").findOne(match, function(err, result) {
     if (err) throw err;
     console.log("Found loglink doc with sessionId: " + result.sessionId +
@@ -104,7 +104,7 @@ function retrieveTestHtml(socket) {
     console.log("Found " + docs.length + " logs");
     for(let i=0; i<docs.length; i++) {
       let newMsg = docs[i];
-      console.log(newMsg)
+      console.log(newMsg);
       // foo = utf8.encode(newMsg.message); // do at client
       foo = newMsg.message;
       markup = `
@@ -113,7 +113,7 @@ function retrieveTestHtml(socket) {
         </div>`;
       logHtml.push(markup);
     }
-    console.log("Created HTML for " + logHtml.length + " logs")
+    console.log("Created HTML for " + logHtml.length + " logs");
     socket.emit('html', logHtml);
   });
 }
@@ -126,8 +126,8 @@ MongoClient.connect("mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSe
   }
   console.log("Connected to db");
   _db = database.db(db_name);
-  _local = database.db("local")
+  _local = database.db("local");
   http.listen(port, function(){
     console.log('listening on *:' + port);
   });
-})
+});
