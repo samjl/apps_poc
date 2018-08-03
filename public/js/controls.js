@@ -110,6 +110,6 @@ function foldToLevel(level) {
       // console.log("Min log level to fold (index: " + msg.index + ", level: " + msg.level + ")");
       activeMsgIndices.push(msg.index);
     }
-  })
+  });
   updateActive();
 }

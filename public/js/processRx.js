@@ -149,31 +149,31 @@ $(window).ready(function(){
     if (allMsgs[allMsgsPosition].foldState) {
       console.log("update clicked element (parent) to unfold, active index:" + " " + activeIndex);
       setParentUnfolded(allMsgsPosition);
-      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition])
+      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
 
-      console.log("unfold children")
+      console.log("unfold children");
       let insertActiveIndex = activeIndex + 1;
       for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
         if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
           // Child is not already inserted
           if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
             // Child is a parent and is folded so add it and skip its children
-            activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]))
+            activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
             activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
             i += allMsgs[i].numOfChildren;
           } else {  // check the message
-            activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]))
+            activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
             activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
           }
         }
         insertActiveIndex++;
       }
     } else {
-      console.log("update clicked element (parent) to fold, active index: " + activeIndex)
+      console.log("update clicked element (parent) to fold, active index: " + activeIndex);
       setParentFolded(allMsgsPosition);
-      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition])
+      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
 
-      console.log("fold children")
+      console.log("fold children");
       for (let i=activeIndex+1; i<=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i++) {
         if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[allMsgsPosition].numOfChildren) {
           activeHtml.splice(activeIndex+1, 1);  // remove index for each subsequent child
@@ -202,7 +202,7 @@ $(window).ready(function(){
     // Single (live db update) log message
     socket.on('log message', function(msg){
       // Check message is a new message - just log updates to console for now
-      if (msg.o.hasOwnProperty("index") && msg.o.message.charAt(0) != "{") {
+      if (msg.o.hasOwnProperty("index") && msg.o.message.charAt(0) !== "{") {
         $('#main').append(applyTemplate(msg));
         newDomDiv = applyTemplate(msg);
         // console.log(newDomDiv)
