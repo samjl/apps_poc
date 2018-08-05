@@ -5,7 +5,7 @@ let io = require('socket.io')(http);
 let port = process.env.PORT || 3000;
 const MongoClient = require("mongodb").MongoClient;
 require('console-stamp')(console, 'HH:MM:ss.l'); // For debug only
-const db_name = "proto";
+const db_name = "dev";
 const collection = "testlogs";
 let _db;
 let _local;
@@ -124,7 +124,7 @@ MongoClient.connect("mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSe
   if (err) {
     return console.log(err);
   }
-  console.log("Connected to db");
+  console.log("Connected to db " + db_name);
   _db = database.db(db_name);
   _local = database.db("local");
   http.listen(port, function(){
