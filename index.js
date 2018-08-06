@@ -76,23 +76,26 @@ function retrieveTestLog(socket) {
 
 function retrieveTestLogParts(socket, session, module) {
   let match = {"sessionId": parseInt(session), "moduleName": module};
-  _db.collection("loglinks").findOne(match, function(err, result) {
+  _db.collection("loglinks").find(match).toArray(function(err, links) {
     if (err) throw err;
-    console.log("Found loglink doc with sessionId: " + result.sessionId +
-                ", module: " + result.moduleName + ", test: " + result.testName);
-    console.log("Number of log links: " + result.logIds.length);
-    match = {"_id": {"$in": result.logIds}};
+    console.log("Found " + links.length + " loglink docs");
+    let allLogLinks = [];
+    links.forEach(function(logLink) {
+      console.log("Test: " + logLink.testName + " - Number of log links: " + logLink.logIds.length);
+      Array.prototype.push.apply(allLogLinks, logLink.logIds);
+    });
+    console.log("Total logs for module: " + allLogLinks.length);
+    match = {"_id": {"$in": allLogLinks}};
     // Now retrieve the logs from the list of _id's
     _db.collection(collection).find(match).toArray(function(err, docs) {
       if (err) throw err;
       console.log("Number of log message docs retrieved: " + docs.length);
-      while (docs.length> 0) {
+      while (docs.length>0) {
         // Currently 500 message chunks gives the best client side performance
         socket.emit('saved messages', docs.splice(0, 500));
       }
       console.log("Done - all test logs emitted");
-  });
-
+    });
   });
 }
 
