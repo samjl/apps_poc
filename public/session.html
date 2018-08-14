@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Test Session Main Page</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+  </head>
+
+  <div id="container">
+    <p>Session page placeholder</p>
+  </div>
+
+  <script type='text/javascript'>
+    $(window).ready(function() {
+      let socket = io();
+      socket.on('connect', function () {
+        console.log("Client connected");
+        socket.emit('from', {page: 'session'});
+      });
+    });
+  </script>
+
+</html>

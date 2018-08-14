@@ -190,13 +190,16 @@ $(window).ready(function(){
   $(function () {
     let socket = io();
 
-    socket.on('ready', function() {  // data
+    socket.on('connect', function() {
+      console.log("Client connected");
       let vars = {};
       window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
         vars[key] = value;
       });
-      console.log(vars);
-      socket.emit('find parameters', vars);
+      socket.emit('from', {
+        page: 'test',
+        params: vars
+      });
     });
 
     // Single (live db update) log message
