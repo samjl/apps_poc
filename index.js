@@ -23,7 +23,9 @@ app.get('/session', function(req, res){
 app.use(express.static(__dirname + '/public'));
 
 io.on('connection', function(socket){
-  console.log('Connected - using ' + db_name + ' database');
+  let handshake = socket.handshake;
+  console.log('New connection from ' + handshake.address);
+
   // Development PoC options
   // 1. Tail the oplog: get all oplogs for the collection (already existing in oplog and then tail it)
   // tailOplog(socket)
