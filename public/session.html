@@ -17,6 +17,14 @@
         console.log("Client connected");
         socket.emit('from', {page: 'session'});
       });
+
+      socket.on('session_full', (data) => {
+        console.log(data);
+      });
+
+      socket.on('session_update', (data) => {
+        console.log(data);
+      });
     });
   </script>
 

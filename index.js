@@ -9,6 +9,7 @@ const db_name = 'dev';
 const collection = 'testlogs';
 let _db;
 let _local;
+const util = require('util');
 
 
 app.get('/', function(req, res){
@@ -47,6 +48,7 @@ io.on('connection', function(socket){
       case 'session':
         console.log('Session page');
         // Watch session
+        watchSession(socket);
         break;
       default:
         console.log('Unknown page');
@@ -54,6 +56,29 @@ io.on('connection', function(socket){
   });
 });
 
+function watchSession(socket) {
+  let pipeline = [{$project: {
+    operationType: 1,
+    updateDescription: 1,
+    fullDocument: 1
+  }}];
+  let changeStream = _db.collection('sessions').watch(pipeline);  // , {fullDocument: 'updateLookup'}
+  // start listen to changes
+  changeStream.on("change", function(change) {
+    console.log('Session doc change:')
+    console.log(util.inspect(change, {showHidden: false, depth: null}));
+    // TODO if insert
+    // else update
+    socket.emit('session_update', change.updateDescription);
+  });
+
+  // get the full document first TODO project?
+  _db.collection('sessions').findOne({}, (err, item) => {
+    console.log('Session findOne returned:');
+    console.log(util.inspect(item, {showHidden: false, depth: null}));
+    socket.emit('session_full', item);
+  });
+}
 
 function tailOplog(socket) {
   console.log('Start tailing the oplog');
