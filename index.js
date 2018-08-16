@@ -42,7 +42,8 @@ io.on('connection', function(socket){
     console.log('Client page is ' + data.page);
     switch (data.page) {
       case 'test':
-        console.log('Test log page - session = ' + data.params.session + ', module = ' + data.params.module);
+        console.log('Test log page - session = ' + data.params.session +
+          ', module = ' + data.params.module);
         retrieveTestLogParts(socket, data.params.session, data.params.module);
         break;
       case 'session':
@@ -57,23 +58,45 @@ io.on('connection', function(socket){
 });
 
 function watchSession(socket) {
-  let pipeline = [{$project: {
-    operationType: 1,
-    updateDescription: 1,
-    fullDocument: 1
-  }}];
-  let changeStream = _db.collection('sessions').watch(pipeline);  // , {fullDocument: 'updateLookup'}
+  let id = 5;  // TODO get next or latest sessionId from sessioncounter
+  // collection
+  let pipeline = [
+    {
+      $match: {
+        // Returning the full document and the session ID let's us set up
+        // the change stream before the document is created (_id not required)
+        "fullDocument.sessionId": id
+      }
+    },
+    {
+      $project: {
+        operationType: 1,
+        updateDescription: 1,
+        fullDocument: 1
+      }
+    }
+  ];
+  let changeStream = _db.collection('sessions').watch(pipeline,
+    {fullDocument: 'updateLookup'});
   // start listen to changes
   changeStream.on("change", function(change) {
-    console.log('Session doc change:')
+    console.log('Session doc change:');
     console.log(util.inspect(change, {showHidden: false, depth: null}));
-    // TODO if insert
+    if (change.operationType === 'insert') {
+      // TODO project out _id
+      socket.emit('session_full', change.fullDocument);
+    } else if (change.operationType === 'update'){
+      socket.emit('session_update', change.updateDescription);
+    } else {
+      console.log('Unhandled change operation (' + change.operationType + ')');
+    }
+
     // else update
-    socket.emit('session_update', change.updateDescription);
   });
 
-  // get the full document first TODO project?
-  _db.collection('sessions').findOne({}, (err, item) => {
+  // get the full document first
+  _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
+    // TODO project out _id
     console.log('Session findOne returned:');
     console.log(util.inspect(item, {showHidden: false, depth: null}));
     socket.emit('session_full', item);
