@@ -8,7 +8,10 @@
 
   <div id="container">
     <p id="sessionTitle">Session page placeholder</p>
-    <p id="status">Status</p>
+    <div>
+      <p style="display: inline">Status: </p>
+      <p id="status" style="display: inline">None</p>
+    </div>
     <p id="activeSetups">Currently active setup functions: None</p>
 
     <div id="running">
@@ -48,10 +51,10 @@
         console.log(data);
         console.log('Collected tests: ' + data.collected);
         console.log('Collected tests #: ' + data.collected.length);
-        $('#sessionTitle').html('Session ' + data.sessionId + ' collected ' +
-          data.collected.length + ' tests');
-        $('#plan').html('Test plan: ' + data.plan);
-        $('#status').html('Status: ' + data.status);
+        $('#sessionTitle').text('Session ' + data.sessionId + ' collected '
+          + data.collected.length + ' tests');
+        $('#plan').text('Test plan: ' + data.plan);
+        $('#status').text(data.status);
 
       });
 
@@ -130,6 +133,9 @@
                   })
                 ]).appendTo($('#testsList'));
               }
+            }
+            if (k[0] === 'status') {
+             $('#status').text(k[1]);
             }
             if (k[0] === 'progress.phase') {
               $('#phase').text(k[1]);
