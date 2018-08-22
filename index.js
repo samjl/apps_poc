@@ -58,48 +58,56 @@ io.on('connection', function(socket){
 });
 
 function watchSession(socket) {
-  let id = 5;  // TODO get next or latest sessionId from sessioncounter
-  // collection
-  let pipeline = [
-    {
-      $match: {
-        // Returning the full document and the session ID let's us set up
-        // the change stream before the document is created (_id not required)
-        "fullDocument.sessionId": id
+  // let id = 13;
+  // DEBUG get the last session ID and increment it for the next session
+  _db.collection('sessioncounter').findOne({}, (err, item) => {
+    console.log('Last session ID findOne returned:');
+    // console.log(util.inspect(item, {showHidden: false, depth: null}));
+    id = item.sessionId + 1;
+    console.log("Waiting for session to start with ID: " + id)
+
+    // collection
+    let pipeline = [
+      {
+        $match: {
+          // Returning the full document and the session ID let's us set up
+          // the change stream before the document is created (_id not required)
+          "fullDocument.sessionId": id
+        }
+      },
+      {
+        $project: {
+          operationType: 1,
+          updateDescription: 1,
+          fullDocument: 1
+        }
       }
-    },
-    {
-      $project: {
-        operationType: 1,
-        updateDescription: 1,
-        fullDocument: 1
+    ];
+    let changeStream = _db.collection('sessions').watch(pipeline,
+      {fullDocument: 'updateLookup'});
+    // start listen to changes
+    changeStream.on("change", function(change) {
+      console.log('Session doc change:');
+      // console.log(util.inspect(change, {showHidden: false, depth: null}));
+      if (change.operationType === 'insert') {
+        // TODO project out _id: 0
+        socket.emit('session_full', change.fullDocument);
+      } else if (change.operationType === 'update'){
+        socket.emit('session_update', change.updateDescription);
+      } else {
+        console.log('Unhandled change operation (' + change.operationType + ')');
       }
-    }
-  ];
-  let changeStream = _db.collection('sessions').watch(pipeline,
-    {fullDocument: 'updateLookup'});
-  // start listen to changes
-  changeStream.on("change", function(change) {
-    console.log('Session doc change:');
-    console.log(util.inspect(change, {showHidden: false, depth: null}));
-    if (change.operationType === 'insert') {
+    });
+
+    // get the full document first
+    _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
       // TODO project out _id
-      socket.emit('session_full', change.fullDocument);
-    } else if (change.operationType === 'update'){
-      socket.emit('session_update', change.updateDescription);
-    } else {
-      console.log('Unhandled change operation (' + change.operationType + ')');
-    }
-
-    // else update
-  });
-
-  // get the full document first
-  _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
-    // TODO project out _id
-    console.log('Session findOne returned:');
-    console.log(util.inspect(item, {showHidden: false, depth: null}));
-    socket.emit('session_full', item);
+      console.log('Session findOne returned:');
+      // console.log(util.inspect(item, {showHidden: false, depth: null}));
+      if (item != null) {
+        socket.emit('session_full', item);
+      }
+    });
   });
 }
 

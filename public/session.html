@@ -8,17 +8,32 @@
 
   <div id="container">
     <p id="sessionTitle">Session page placeholder</p>
-    <p id="plan">Test plan: </p>
-    <p id="embeddedVersion">Embedded version: </p>
-    <p id="testVersion">Test version: </p>
     <p id="status">Status</p>
     <p id="activeSetups">Currently active setup functions: None</p>
 
-    <p id="running">Running - module: class: test: phase:</p>
-    <p id="complete">Last completed: </p>
-    <div id="testResults">
-
+    <div id="running">
+      <p>Running:</p>
+      <div>
+        <p style="display: inline">Module: </p>
+        <p id="module" style="display: inline">None</p>
+      </div>
+      <div>
+        <p style="display: inline">Class: </p>
+        <p id="class" style="display: inline">None</p>
+      </div>
+      <div>
+        <p style="display: inline">Test function: </p>
+        <p id="test" style="display: inline">None</p>
+      </div>
+      <div>
+        <p style="display: inline">Phase: </p>
+        <p id="phase" style="display: inline">None</p>
+      </div>
     </div>
+    <div id="complete" style="overflow-y: scroll; max-height: 50px"></div>
+    <div id="testResults"></div>
+
+    <ul id="testsList"></ul>
   </div>
 
   <script type="text/javascript">
@@ -40,32 +55,105 @@
 
       });
 
+      let moduleName = '';
+      let className = '';
+      let testName = '';
+
       socket.on('session_update', (data) => {
-        console.log(data);
         if (data.hasOwnProperty('updatedFields')) {
           // TODO process this at the server end instead - just for array elements like runOrder
           Object.entries(data.updatedFields).forEach(function(k) {
             if (k[0].indexOf('runOrder') === 0) {
               // attribute starts with runOrder
-              console.log("Found - " + k[0]);
               console.log(k);
-              if (k[1] instanceof Array) {
-                // for the first entry [0] object is in an array
-                $('#testResults').append('<p>' + k[1][0].testName +'</p>');
+              console.log("Found - " + k[0]);
+
+              let re = /runOrder\.?(?<index>\d*)\.?(?<param>\w*)/gm;
+              let my = re.exec(k[0]);
+              console.log(my);
+              let runOrderIndex = my.groups.index;
+              let runOrderParam = my.groups.param;
+
+              if (!runOrderIndex) {
+                console.log('runOrder with no index detected - element 0');
+                $('#module').text(k[1][0].moduleName);
+                $('#class').text(k[1][0].className);
+                $('#test').text(k[1][0].testName);
+                runOrderIndex = 0;
+                $('<li>', {
+                  id: 'test_' + runOrderIndex
+                }).append([
+                  $('<p>', {
+                    id: "name_" + runOrderIndex,
+                    text: k[1][0].testName
+                  }).css({
+                    display: "inline"
+                  }),
+                  $('<p>', {
+                    id: "outcome_" + runOrderIndex,
+                    text: ":  " + k[1][0].outcome
+                  }).css({
+                    display: "inline"
+                  })
+                ]).appendTo($('#testsList'));
+              } else if (runOrderParam) { // TODO param update to first test?
+                console.log('runOrder ' + runOrderIndex + ' param update - ' +
+                  runOrderParam + ': ' + k[1]);
+                if (runOrderParam === "status" && k[1] === "complete") {
+                  $('#outcome_' + runOrderIndex).css('font-weight', 'bold');
+                } else {
+                  $('#' + runOrderParam + "_" + runOrderIndex).text(':  ' +
+                    k[1]);
+                }
               } else {
-                $('#testResults').append('<p>' + k[1].testName +'</p>');
+                console.log('runOrder full update/insert for index ' +
+                  runOrderIndex);
+
+                $('#module').text(k[1].moduleName);
+                $('#class').text(k[1].className);
+                $('#test').text(k[1].testName);
+
+                $('<li>', {
+                  id: 'test_' + runOrderIndex
+                }).append([
+                  $('<p>', {
+                    id: "name_" + runOrderIndex,
+                    text: k[1].testName
+                  }).css({
+                    display: "inline"
+                  }),
+                  $('<p>', {
+                    id: "outcome_" + runOrderIndex,
+                    text: ":  " + k[1].outcome
+                  }).css({
+                    display: "inline"
+                  })
+                ]).appendTo($('#testsList'));
               }
             }
             if (k[0] === 'progress.phase') {
-              $('#running').html('Running - module: class: test: phase: ' +
-                k[1]);
+              $('#phase').text(k[1]);
             }
             if (k[0] === 'progress.completed') {
-                $('#complete').html('<p>' + k[1].moduleName + '::' +
-                  k[1].className + '::' + k[1].testName + '::' +
-                  k[1].fixtureName + '::' + k[1].phase + '::' + k[1].outcome +
-                  '</p>');
+              console.log(k[1]);
+              if (k[1].hasOwnProperty('moduleName')) {
+                moduleName = k[1].moduleName;
+              }
+              if (k[1].hasOwnProperty('className')) {
+                className = k[1].className;
+              }
+              if (k[1].hasOwnProperty('testName')) {
+                testName = k[1].testName;
+              }
+              $('#complete').append('<p>' + moduleName + ' :: ' + className +
+                ' :: ' + testName + ' :: ' +  k[1].fixtureName + ' :: ' +
+                k[1].phase + ' :: ' + k[1].outcome + ' :: ' +
+                k[1].verifications + '</p>');
 
+              // Scroll to bottom
+              let scrollH = $('#complete').prop('scrollHeight');
+              console.log("Scroll height: " + scrollH);
+              $('#complete').scrollTop(scrollH);
             }
           });
         }
