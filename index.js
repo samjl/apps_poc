@@ -11,11 +11,21 @@ let _db;
 let _local;
 const util = require('util');
 
-
+// Test log viewer.
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/public/index.html');
 });
 
+// Used for fixed links to specific session IDs.
+app.get('/sessionId', function(req, res){
+  res.sendFile(__dirname + '/public/sessionId.html')
+  // This page simply saves the session ID to (client) local storage and
+  // then signals server. Server redirects to the main /session page.
+});
+
+// Main session page/dashboard. Displays test results for a single (mongoDB)
+// test session. Waits for a session to start and updates live results as
+// session progresses.
 app.get('/session', function(req, res){
   res.sendFile(__dirname + '/public/session.html')
 });
@@ -46,10 +56,13 @@ io.on('connection', function(socket){
           ', module = ' + data.params.module);
         retrieveTestLogParts(socket, data.params.session, data.params.module);
         break;
+      case 'sessionId':
+        console.log("Session ID page - redirect to main session page");
+        socket.emit('redirect', '/session');
+        break;
       case 'session':
-        console.log('Session page');
-        // Watch session
-        watchSession(socket);
+        console.log('Session page - ID requested: ' + data.sessionId);
+        sessionDash(socket, data.sessionId);
         break;
       default:
         console.log('Unknown page');
@@ -57,57 +70,67 @@ io.on('connection', function(socket){
   });
 });
 
-function watchSession(socket) {
-  // let id = 13;
-  // DEBUG get the last session ID and increment it for the next session
-  _db.collection('sessioncounter').findOne({}, (err, item) => {
-    console.log('Last session ID findOne returned:');
-    // console.log(util.inspect(item, {showHidden: false, depth: null}));
-    id = item.sessionId + 1;
-    console.log("Waiting for session to start with ID: " + id)
-
-    // collection
-    let pipeline = [
-      {
-        $match: {
-          // Returning the full document and the session ID let's us set up
-          // the change stream before the document is created (_id not required)
-          "fullDocument.sessionId": id
-        }
-      },
-      {
-        $project: {
-          operationType: 1,
-          updateDescription: 1,
-          fullDocument: 1
-        }
-      }
-    ];
-    let changeStream = _db.collection('sessions').watch(pipeline,
-      {fullDocument: 'updateLookup'});
-    // start listen to changes
-    changeStream.on("change", function(change) {
-      console.log('Session doc change:');
-      // console.log(util.inspect(change, {showHidden: false, depth: null}));
-      if (change.operationType === 'insert') {
-        // TODO project out _id: 0
-        socket.emit('session_full', change.fullDocument);
-      } else if (change.operationType === 'update'){
-        socket.emit('session_update', change.updateDescription);
-      } else {
-        console.log('Unhandled change operation (' + change.operationType + ')');
-      }
-    });
-
-    // get the full document first
-    _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
-      // TODO project out _id
-      console.log('Session findOne returned:');
+function sessionDash(socket, sessionId) {
+  let id;
+  if (!sessionId) {
+    _db.collection('sessioncounter').findOne({}, (err, item) => {
+      console.log('Last session ID findOne returned:');
       // console.log(util.inspect(item, {showHidden: false, depth: null}));
-      if (item != null) {
-        socket.emit('session_full', item);
-      }
+      id = item.sessionId + 1;
+      console.log("Waiting for session to start with ID: " + id);
     });
+  } else {
+    id = parseInt(sessionId)
+  }
+  findAndWatchSession(socket, id);
+}
+
+function findAndWatchSession(socket, id) {
+  console.log("Retrieving/tracking session " + id);
+  console.log(typeof id);
+  // collection
+  let pipeline = [
+    {
+      $match: {
+        // Returning the full document and the session ID let's us set up
+        // the change stream before the document is created (_id not required)
+        "fullDocument.sessionId": id
+      }
+    },
+    {
+      $project: {
+        operationType: 1,
+        updateDescription: 1,
+        fullDocument: 1
+      }
+    }
+  ];
+  let changeStream = _db.collection('sessions').watch(pipeline,
+    {fullDocument: 'updateLookup'});
+  // start listen to changes
+  changeStream.on("change", function(change) {
+    console.log('Session doc change:');
+    // console.log(util.inspect(change, {showHidden: false, depth: null}));
+    if (change.operationType === 'insert') {
+      // TODO project out _id: 0
+      console.log('session_full - change stream');
+      socket.emit('session_full', change.fullDocument);
+    } else if (change.operationType === 'update'){
+      socket.emit('session_update', change.updateDescription);
+    } else {
+      console.log('Unhandled change operation (' + change.operationType + ')');
+    }
+  });
+
+  // get the full document first
+  _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
+    // TODO project out _id
+    console.log('Session findOne returned:');
+    // console.log(util.inspect(item, {showHidden: false, depth: null}));
+    if (item != null) {
+      console.log('session_full - find');
+      socket.emit('session_full', item);
+    }
   });
 }
 

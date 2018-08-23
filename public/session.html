@@ -7,6 +7,8 @@
   </head>
 
   <div id="container">
+    <label for="sessionId" style="display: inline">Session ID</label>
+    <input id="sessionId" style="display: inline" type="number" onchange="saveSessionId()">
     <p id="sessionTitle">Session page placeholder</p>
     <div>
       <p style="display: inline">Status: </p>
@@ -41,10 +43,19 @@
 
   <script type="text/javascript">
     $(window).ready(function() {
+      let sessionId = localStorage.getItem("sessionId");
+      // null if not stored - server gets ID for NEXT (not started) session
+      console.log("Session page with saved ID " + sessionId);
+      $('#sessionId').val(sessionId);
+
+      // let socket = io.connect('', {query: 'page=session'});
       let socket = io();
       socket.on('connect', function () {
-        console.log("Client connected");
-        socket.emit('from', {page: 'session'});
+        console.log("Session Client connected");
+        socket.emit('from', {
+          page: 'session',
+          sessionId: sessionId
+        });
       });
 
       socket.on('session_full', (data) => {
@@ -165,6 +176,14 @@
         }
       });
     });
+  </script>
+  <script type="text/javascript">
+    function saveSessionId() {
+      let sessionId = $('#sessionId').val();
+      localStorage.setItem("sessionId", sessionId);
+      console.log("Set session ID to " + localStorage.getItem("sessionId"));
+      location.reload();
+    }
   </script>
 
 </html>
