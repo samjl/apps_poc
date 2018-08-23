@@ -35,7 +35,7 @@ app.use(express.static(__dirname + '/public'));
 
 io.on('connection', function(socket){
   let handshake = socket.handshake;
-  console.log('New connection from ' + handshake.address);
+  logSocket(socket, 'New connection');
 
   // Development PoC options
   // 1. Tail the oplog: get all oplogs for the collection (already existing in oplog and then tail it)
@@ -49,35 +49,40 @@ io.on('connection', function(socket){
 
   // On connect client informs server which page is loaded
   socket.on('from', function(data) {
-    console.log('Client page is ' + data.page);
+    let socket = this;
+    logSocket(socket, 'Client page is ' + data.page);
     switch (data.page) {
       case 'test':
-        console.log('Test log page - session = ' + data.params.session +
+        logSocket(socket, 'Test log page - session = ' + data.params.session +
           ', module = ' + data.params.module);
         retrieveTestLogParts(socket, data.params.session, data.params.module);
         break;
       case 'sessionId':
-        console.log("Session ID page - redirect to main session page");
+        logSocket(socket, 'Session ID page - redirect to main session page');
         socket.emit('redirect', '/session');
         break;
       case 'session':
-        console.log('Session page - ID requested: ' + data.sessionId);
+        logSocket(socket, 'Session page - ID requested: ' + data.sessionId);
         sessionDash(socket, data.sessionId);
         break;
       default:
-        console.log('Unknown page');
+        logSocket(socket, 'Unknown page');
     }
   });
 });
+
+function logSocket(socket, msg) {
+  console.log('[' + socket.handshake.address + '] ' + msg);
+}
 
 function sessionDash(socket, sessionId) {
   let id;
   if (!sessionId) {
     _db.collection('sessioncounter').findOne({}, (err, item) => {
-      // console.log('Last session ID findOne returned:');
-      // console.log(util.inspect(item, {showHidden: false, depth: null}));
+      // logSocket(socket, 'Last session ID findOne returned:');
+      // logSocket(socket, util.inspect(item, {showHidden: false, depth: null}));
       id = item.sessionId + 1;
-      console.log("Waiting for session to start with ID: " + id);
+      logSocket(socket, 'Waiting for session to start with ID: ' + id);
     });
   } else {
     id = parseInt(sessionId)
@@ -86,7 +91,7 @@ function sessionDash(socket, sessionId) {
 }
 
 function findAndWatchSession(socket, id) {
-  console.log("Retrieving/tracking session " + id);
+  logSocket(socket, 'Retrieving/tracking session ' + id);
   let pipeline = [
     {
       $match: {
@@ -107,25 +112,26 @@ function findAndWatchSession(socket, id) {
     {fullDocument: 'updateLookup'});
   // start listen to changes
   changeStream.on("change", function(change) {
-    // console.log(util.inspect(change, {showHidden: false, depth: null}));
+    // logSocket(socket, util.inspect(change, {showHidden: false, depth: null}));
     if (change.operationType === 'insert') {
-      console.log('session_insert (change stream)');
+      logSocket(socket, 'session_insert (change stream)');
       socket.emit('session_insert', change.fullDocument);
     } else if (change.operationType === 'update'){
       socket.emit('session_update (change stream)', change.updateDescription);
     } else {
-      console.log('Unhandled change operation (' + change.operationType + ')');
+      logSocket(socket, 'Unhandled change operation (' + change.operationType +
+        ')');
     }
   });
 
   // get the full document first
   _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
-    // console.log(util.inspect(item, {showHidden: false, depth: null}));
+    // logSocket(socket, util.inspect(item, {showHidden: false, depth: null}));
     if (item != null) {
-      console.log('session_full (findOne)');
+      logSocket(socket, 'session_full (findOne)');
       socket.emit('session_full', item);
     } else {
-      console.log('Session findOne returned null');
+      logSocket(socket, 'Session findOne returned null');
     }
   });
 }
