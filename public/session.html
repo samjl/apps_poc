@@ -10,15 +10,21 @@
   <div id="container">
     <label for="sessionId" style="display: inline">Session ID</label>
     <input id="sessionId" style="display: inline" type="number" onchange="saveSessionId()">
-    <p id="sessionTitle">Session page placeholder</p>
+    <div>
+      <p style="display: inline">Retrieved session</p>
+      <p id="sessionRx" style="display: inline"></p> collected
+      <p id="sessionCollected" style="display: inline"></p> tests
+    </div>
     <div>
       <p style="display: inline">Status: </p>
-      <p id="status" style="display: inline">None</p>
+      <p id="status" style="display: inline; font-weight: bold">None</p>
     </div>
-    <p id="activeSetups">Currently active setup functions: None</p>
+
+    <p style="display: inline">Currently active setup functions:</p>
+    <p id="activeSetups"></p>
 
     <div id="running">
-      <p>Running:</p>
+      <p style="margin: 0px">Running:</p>
       <div>
         <p style="display: inline">Module: </p>
         <p id="module" style="display: inline">None</p>

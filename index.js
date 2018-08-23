@@ -74,7 +74,7 @@ function sessionDash(socket, sessionId) {
   let id;
   if (!sessionId) {
     _db.collection('sessioncounter').findOne({}, (err, item) => {
-      console.log('Last session ID findOne returned:');
+      // console.log('Last session ID findOne returned:');
       // console.log(util.inspect(item, {showHidden: false, depth: null}));
       id = item.sessionId + 1;
       console.log("Waiting for session to start with ID: " + id);
@@ -87,8 +87,6 @@ function sessionDash(socket, sessionId) {
 
 function findAndWatchSession(socket, id) {
   console.log("Retrieving/tracking session " + id);
-  console.log(typeof id);
-  // collection
   let pipeline = [
     {
       $match: {
@@ -109,14 +107,12 @@ function findAndWatchSession(socket, id) {
     {fullDocument: 'updateLookup'});
   // start listen to changes
   changeStream.on("change", function(change) {
-    console.log('Session doc change:');
     // console.log(util.inspect(change, {showHidden: false, depth: null}));
     if (change.operationType === 'insert') {
-      // TODO project out _id: 0
-      console.log('session_full - change stream');
-      socket.emit('session_full', change.fullDocument);
+      console.log('session_insert (change stream)');
+      socket.emit('session_insert', change.fullDocument);
     } else if (change.operationType === 'update'){
-      socket.emit('session_update', change.updateDescription);
+      socket.emit('session_update (change stream)', change.updateDescription);
     } else {
       console.log('Unhandled change operation (' + change.operationType + ')');
     }
@@ -124,12 +120,12 @@ function findAndWatchSession(socket, id) {
 
   // get the full document first
   _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
-    // TODO project out _id
-    console.log('Session findOne returned:');
     // console.log(util.inspect(item, {showHidden: false, depth: null}));
     if (item != null) {
-      console.log('session_full - find');
+      console.log('session_full (findOne)');
       socket.emit('session_full', item);
+    } else {
+      console.log('Session findOne returned null');
     }
   });
 }
