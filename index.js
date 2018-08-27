@@ -117,7 +117,8 @@ function findAndWatchSession(socket, id) {
       logSocket(socket, 'session_insert (change stream)');
       socket.emit('session_insert', change.fullDocument);
     } else if (change.operationType === 'update'){
-      socket.emit('session_update (change stream)', change.updateDescription);
+      logSocket(socket, 'session_update (change stream)');
+      socket.emit('session_update', change.updateDescription);
     } else {
       logSocket(socket, 'Unhandled change operation (' + change.operationType +
         ')');
