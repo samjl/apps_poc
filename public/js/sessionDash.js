@@ -99,11 +99,11 @@ $(window).ready(function() {
           console.log(k);
           console.log("Found - " + k[0]);
 
-          let re = /runOrder\.?(?<index>\d*)\.?(?<param>\w*)/gm;
+          let re = /runOrder\.?(\d*)\.?(\w*)/gm;
           let my = re.exec(k[0]);
           console.log(my);
-          let runOrderIndex = my.groups.index;
-          let runOrderParam = my.groups.param;
+          let runOrderIndex = my[1];
+          let runOrderParam = my[2];
 
           if (!runOrderIndex) {
             console.log('runOrder with no index detected - element 0');
@@ -181,9 +181,9 @@ $(window).ready(function() {
           $('#complete').scrollTop(scrollH);
         }
         if (k[0].indexOf('progress.activeSetups') === 0) {  // add or remove from list
-          let re = /progress\.activeSetups\.?(?<index>\d*)/gm;
+          let re = /progress\.activeSetups\.?(\d*)/gm;
           let my = re.exec(k[0]);
-          let activeIndex = my.groups.index;
+          let activeIndex = my[1];
           if (!activeIndex) {
             // Complete list of active setup functions
             $('#activeSetups').text(k[1]);
