@@ -41,7 +41,6 @@ $(window).ready(function() {
     // Process (data.)runOrder
     Object.entries(data.runOrder).forEach(function(k) {
       let runOrderIndex = k[0];
-      let fontWeight = 'normal';
 
       // TODO just update module, class and test for the final array item
       $('#module').text(k[1].moduleName);
@@ -49,26 +48,7 @@ $(window).ready(function() {
       $('#test').text(k[1].testName);
 
       // TODO check if the ID already exists (required for server restarts?)
-      if (k[1].status === 'complete') {
-        fontWeight = 'bold';
-      }
-      $('<li>', {
-        id: 'test_' + runOrderIndex
-      }).append([
-        $('<p>', {
-          id: "name_" + runOrderIndex,
-          text: k[1].testName
-        }).css({
-          display: "inline"
-        }),
-        $('<p>', {
-          id: "outcome_" + runOrderIndex,
-          text: ":  " + k[1].outcome
-        }).css({
-          display: "inline",
-          fontWeight: fontWeight
-        })
-      ]).appendTo($('#testsList'));
+      appendToRunOrder(runOrderIndex, k[1], data.sessionId);
     });
 
     // Progress (TODO if session is still in progress)
@@ -110,23 +90,7 @@ $(window).ready(function() {
             $('#module').text(k[1][0].moduleName);
             $('#class').text(k[1][0].className);
             $('#test').text(k[1][0].testName);
-            runOrderIndex = 0;
-            $('<li>', {
-              id: 'test_' + runOrderIndex
-            }).append([
-              $('<p>', {
-                id: "name_" + runOrderIndex,
-                text: k[1][0].testName
-              }).css({
-                display: "inline"
-              }),
-              $('<p>', {
-                id: "outcome_" + runOrderIndex,
-                text: ":  " + k[1][0].outcome
-              }).css({
-                display: "inline"
-              })
-            ]).appendTo($('#testsList'));
+            appendToRunOrder(0, k[1][0], $('#sessionId').val());
           } else if (runOrderParam) { // TODO param update to first test?
             console.log('runOrder ' + runOrderIndex + ' param update - ' +
               runOrderParam + ': ' + k[1]);
@@ -143,23 +107,7 @@ $(window).ready(function() {
             $('#module').text(k[1].moduleName);
             $('#class').text(k[1].className);
             $('#test').text(k[1].testName);
-
-            $('<li>', {
-              id: 'test_' + runOrderIndex
-            }).append([
-              $('<p>', {
-                id: "name_" + runOrderIndex,
-                text: k[1].testName
-              }).css({
-                display: "inline"
-              }),
-              $('<p>', {
-                id: "outcome_" + runOrderIndex,
-                text: ":  " + k[1].outcome
-              }).css({
-                display: "inline"
-              })
-            ]).appendTo($('#testsList'));
+            appendToRunOrder(runOrderIndex, k[1], $('#sessionId').val());
           }
         }
         if (k[0] === 'status') {
@@ -205,4 +153,39 @@ function saveSessionId() {
   localStorage.setItem("sessionId", sessionId);
   console.log("Set session ID to " + localStorage.getItem("sessionId"));
   location.reload();
+}
+
+function appendToRunOrder(index, data, sessionId) {
+  let fontWeight = 'normal';
+  if (data.status === 'complete') {
+     fontWeight = 'bold';
+  }
+  let url = new URL(window.location.href);
+  url.pathname = '';
+  url.search = '?session=' + sessionId + '&module=' + data.moduleName;
+
+  $('<li>', {
+    id: 'test_' + index
+  }).append([
+    $('<a>', {
+      id: "module_" + index,
+      text: data.moduleName,
+      href: url.href
+    }).css({
+      display: "inline"
+    }),
+    $('<p>', {
+      id: "name_" + index,
+      text: ' :: ' + data.testName,
+    }).css({
+      display: "inline"
+    }),
+    $('<p>', {
+      id: "outcome_" + index,
+      text: ":  " + data.outcome
+    }).css({
+      display: "inline",
+      fontWeight: fontWeight
+    })
+  ]).appendTo($('#testsList'));
 }
