@@ -75,29 +75,30 @@ function logSocket(socket, msg) {
   console.log('[' + socket.handshake.address + '] ' + msg);
 }
 
-function sessionDash(socket, sessionId) {
-  let id;
-  if (!sessionId) {
+function sessionDash(socket, sessionIds) {
+  let ids = [];
+  if (!sessionIds[0]) {
     _db.collection('sessioncounter').findOne({}, (err, item) => {
       // logSocket(socket, 'Last session ID findOne returned:');
       // logSocket(socket, util.inspect(item, {showHidden: false, depth: null}));
-      id = item.sessionId + 1;
-      logSocket(socket, 'Waiting for session to start with ID: ' + id);
+      ids.push(item.sessionId + 1);
+      logSocket(socket, 'Waiting for session to start with ID: ' + ids[0]);
+      findAndWatchSessions(socket, ids);
     });
   } else {
-    id = parseInt(sessionId)
+    ids = sessionIds;
+    findAndWatchSessions(socket, ids);
   }
-  findAndWatchSession(socket, id);
 }
 
-function findAndWatchSession(socket, id) {
-  logSocket(socket, 'Retrieving/tracking session ' + id);
+function findAndWatchSessions(socket, ids) {
+  logSocket(socket, 'Retrieving/tracking sessions ' + ids);
   let pipeline = [
     {
       $match: {
         // Returning the full document and the session ID let's us set up
         // the change stream before the document is created (_id not required)
-        "fullDocument.sessionId": id
+        "fullDocument.sessionId": {"$in": ids}
       }
     },
     {
@@ -110,14 +111,17 @@ function findAndWatchSession(socket, id) {
   ];
   let changeStream = _db.collection('sessions').watch(pipeline,
     {fullDocument: 'updateLookup'});
-  // start listen to changes
   changeStream.on("change", function(change) {
     // logSocket(socket, util.inspect(change, {showHidden: false, depth: null}));
     if (change.operationType === 'insert') {
-      logSocket(socket, 'session_insert (change stream)');
+      logSocket(socket, 'session ' + change.fullDocument.sessionId +
+        ' insert (change stream)');
       socket.emit('session_insert', change.fullDocument);
     } else if (change.operationType === 'update'){
-      logSocket(socket, 'session_update (change stream)');
+      logSocket(socket, 'session ' + change.fullDocument.sessionId +
+        ' update (change stream)');
+      // Add the session ID to then transmitted update.
+      change.updateDescription.sessionId = change.fullDocument.sessionId;
       socket.emit('session_update', change.updateDescription);
     } else {
       logSocket(socket, 'Unhandled change operation (' + change.operationType +
@@ -125,14 +129,13 @@ function findAndWatchSession(socket, id) {
     }
   });
 
-  // get the full document first
-  _db.collection('sessions').findOne({"sessionId": id}, (err, item) => {
-    // logSocket(socket, util.inspect(item, {showHidden: false, depth: null}));
-    if (item != null) {
-      logSocket(socket, 'session_full (findOne)');
-      socket.emit('session_full', item);
-    } else {
-      logSocket(socket, 'Session findOne returned null');
+  _db.collection('sessions').find({"sessionId": {"$in": ids}}).toArray(function(err, docs) {
+    if (err == null) {
+      logSocket(socket, 'find returned ' + docs.length + ' session docs');
+      docs.forEach(function(sessionDoc) {
+        logSocket(socket, 'session ' + sessionDoc.sessionId + ' full (find)');
+        socket.emit('session_full', sessionDoc);
+      });
     }
   });
 }

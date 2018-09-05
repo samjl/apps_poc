@@ -2,50 +2,30 @@
 <html>
   <head>
     <title>Test Session Main Page</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="/css/session.css">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://code.jquery.com/jquery-3.3.1.js"></script>
     <script src="/js/sessionDash.js"></script>
   </head>
-
-  <div id="container">
-    <label for="sessionId" style="display: inline">Session ID</label>
-    <input id="sessionId" style="display: inline" type="number" onchange="saveSessionId()">
-    <div>
-      <p style="display: inline">Retrieved session</p>
-      <p id="sessionRx" style="display: inline"></p> collected
-      <p id="sessionCollected" style="display: inline"></p> tests
+  <div id="mainContainer">
+    <div style="background: lightgrey">
+      <label for="sessionId" style="display: inline">Session IDs (comma separated)</label>
+      <input id="sessionId" style="display: inline; margin: 4px" type="text"
+             onchange="saveSessionId()">
     </div>
+    <!--<p id="plan">Test plan: </p>-->
+    <!--<p id="embeddedVersion">Embedded version: </p>-->
+    <!--<p id="testVersion">Test version: </p>-->
     <div>
-      <p style="display: inline">Status: </p>
+      <p style="display: inline">All Sessions Status: </p>
       <p id="status" style="display: inline; font-weight: bold">None</p>
+      <p>Total Tests Collected</p>
+      <p id="testsOutcome">Test Status</p>
     </div>
-
-    <p style="display: inline">Currently active setup functions:</p>
-    <p id="activeSetups"></p>
-
-    <div id="running">
-      <p style="margin: 0px">Running:</p>
-      <div>
-        <p style="display: inline">Module: </p>
-        <p id="module" style="display: inline">None</p>
-      </div>
-      <div>
-        <p style="display: inline">Class: </p>
-        <p id="class" style="display: inline">None</p>
-      </div>
-      <div>
-        <p style="display: inline">Test function: </p>
-        <p id="test" style="display: inline">None</p>
-      </div>
-      <div>
-        <p style="display: inline">Phase: </p>
-        <p id="phase" style="display: inline">None</p>
-      </div>
+    <!-- max height for 3 full lines = 49px -->
+    <div id="complete"
+         style="overflow-y: scroll; min-height: 107px; max-height: 107px; background: #303030;">
     </div>
-    <div id="complete" style="overflow-y: scroll; max-height: 50px"></div>
-    <div id="testResults"></div>
-
-    <ul id="testsList"></ul>
   </div>
-
 </html>

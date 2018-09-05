@@ -1,0 +1,39 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+a, p, input, label, th, td, caption {
+  font-family: 'Open Sans', sans-serif;
+  padding-left: 4px;
+}
+
+.console {
+  font-family: 'Andale Mono';
+  font-size: small;
+  color: greenyellow;
+  margin: 1px;
+}
+
+table {
+  margin: 4px;
+}
+
+table, th, td {
+  border: none;
+  padding: 4px;
+}
+
+th, caption {
+  text-align: left;
+}
+
+th {
+  background: #505050;
+  color: #bfbfbf;
+  font-weight: bold;
+}
+
+td {
+  background: #949494;
+}

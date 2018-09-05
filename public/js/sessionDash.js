@@ -1,10 +1,10 @@
 $(window).ready(function() {
   let sessionId = localStorage.getItem("sessionId");
-  // null if not stored - server gets ID for NEXT (not started) session
+  sessionId = JSON.parse(sessionId);
+  // [null] if not stored - server gets ID for NEXT (not started) session
   console.log("Session page with saved ID " + sessionId);
   $('#sessionId').val(sessionId);
 
-  // let socket = io.connect('', {query: 'page=session'});
   let socket = io();
   socket.on('connect', function () {
     console.log("Session Client connected");
@@ -19,53 +19,40 @@ $(window).ready(function() {
   socket.on('session_insert', (data) => {
     console.log("Initial session insert received");
     console.log(data);
-    console.log('Collected tests: ' + data.collected);
-    console.log('Collected tests #: ' + data.collected.length);
     $('#sessionRx').text(data.sessionId);
     $('#sessionCollected').text(data.collected.length);
     // $('#plan').text('Test plan: ' + data.plan);
     $('#status').text(data.status);
+    console.log('Received mongoDB insert session ' + data.sessionId +
+      ' containing ' + data.collected.length + ' tests');
+    $('#mainContainer').append(sessionTemplate(data));
   });
 
   // Existing session or session in-progress
   socket.on('session_full', (data) => {
-    console.log("Completed session received");
+    console.log('Completed session received with ID ' + data.sessionId);
     console.log(data);
-    console.log('Collected tests: ' + data.collected);
-    console.log('Collected tests #: ' + data.collected.length);
     $('#sessionRx').text(data.sessionId);
     $('#sessionCollected').text(data.collected.length);
     // $('#plan').text('Test plan: ' + data.plan);
     $('#status').text(data.status);
+    console.log('Received mongoDB full session ' + data.sessionId + ' containing '
+      + data.collected.length + ' tests');
+    $('#mainContainer').append(sessionTemplate(data));
 
     // Process (data.)runOrder
     Object.entries(data.runOrder).forEach(function(k) {
       let runOrderIndex = k[0];
-
-      // TODO just update module, class and test for the final array item
-      $('#module').text(k[1].moduleName);
-      $('#class').text(k[1].className);
-      $('#test').text(k[1].testName);
-
       // TODO check if the ID already exists (required for server restarts?)
       appendToRunOrder(runOrderIndex, k[1], data.sessionId);
     });
 
     // Progress (TODO if session is still in progress)
     if (data.hasOwnProperty('progress')) {
-      console.log(data.progress);
-      $('#phase').text(data.progress.phase);
-      $('#activeSetups').text(data.progress.activeSetups);
-      let comp = data.progress.completed;
-      $('#complete').append('<p>' + comp.moduleName + ' :: ' + comp.className +
-        ' :: ' + comp.testName + ' :: ' +  comp.fixtureName + ' :: ' +
-        comp.phase + ' :: ' + comp.outcome + ' :: ' + comp.verifications +
-        '</p>');
-
-      // Scroll to bottom
-      let scrollH = $('#complete').prop('scrollHeight');
-      console.log("Scroll height: " + scrollH);
-      $('#complete').scrollTop(scrollH);
+      $('#phase' + data.sessionId).text(data.progress.phase);
+      $('#activeSetups' + data.sessionId).text(data.progress.activeSetups);
+      appendComplete(data.progress.completed, data.sessionId);
+      consoleScrollToEnd();
     }
   });
 
@@ -87,46 +74,44 @@ $(window).ready(function() {
 
           if (!runOrderIndex) {
             console.log('runOrder with no index detected - element 0');
-            $('#module').text(k[1][0].moduleName);
-            $('#class').text(k[1][0].className);
-            $('#test').text(k[1][0].testName);
-            appendToRunOrder(0, k[1][0], $('#sessionId').val());
+            $('#module' + data.sessionId).text(k[1][0].moduleName);
+            $('#class' + data.sessionId).text(k[1][0].className);
+            $('#test' + data.sessionId).text(k[1][0].testName);
+            appendToRunOrder(0, k[1][0], data.sessionId);
           } else if (runOrderParam) { // TODO param update to first test?
             console.log('runOrder ' + runOrderIndex + ' param update - ' +
               runOrderParam + ': ' + k[1]);
             if (runOrderParam === "status" && k[1] === "complete") {
-              $('#outcome_' + runOrderIndex).css('font-weight', 'bold');
+              $('#outcome_' + data.sessionId + '_' + runOrderIndex)
+                .css('font-weight', 'bold');
             } else {
-              $('#' + runOrderParam + "_" + runOrderIndex).text(':  ' +
-                k[1]);
+              $('#' + runOrderParam + "_" + data.sessionId + '_' +
+                runOrderIndex).text(k[1]);
+              // Check for test function failure (worst-case) so use bold font.
+              if (runOrderParam === 'outcome' && k[1] === "failed") {
+                $('#' + runOrderParam + "_" + data.sessionId + '_' +
+                  runOrderIndex).css('font-weight', 'bold');
+              }
             }
           } else {
             console.log('runOrder full update/insert for index ' +
               runOrderIndex);
-
-            $('#module').text(k[1].moduleName);
-            $('#class').text(k[1].className);
-            $('#test').text(k[1].testName);
-            appendToRunOrder(runOrderIndex, k[1], $('#sessionId').val());
+            $('#module' + data.sessionId).text(k[1].moduleName);
+            $('#class' + data.sessionId).text(k[1].className);
+            $('#test' + data.sessionId).text(k[1].testName);
+            appendToRunOrder(runOrderIndex, k[1], data.sessionId);
           }
         }
         if (k[0] === 'status') {
-         $('#status').text(k[1]);
+         $('#status' + data.sessionId).text(k[1]);
         }
         if (k[0] === 'progress.phase') {
-          $('#phase').text(k[1]);
+          $('#phase' + data.sessionId).text(k[1]);
         }
         if (k[0] === 'progress.completed') {
           console.log(k[1]);
-          $('#complete').append('<p>' + k[1].moduleName + ' :: ' +
-            k[1].className + ' :: ' + k[1].testName + ' :: ' +
-            k[1].fixtureName + ' :: ' + k[1].phase + ' :: ' + k[1].outcome +
-            ' :: ' + k[1].verifications + '</p>');
-
-          // Scroll to bottom
-          let scrollH = $('#complete').prop('scrollHeight');
-          console.log("Scroll height: " + scrollH);
-          $('#complete').scrollTop(scrollH);
+          appendComplete(k[1], data.sessionId);
+          consoleScrollToEnd();
         }
         if (k[0].indexOf('progress.activeSetups') === 0) {  // add or remove from list
           let re = /progress\.activeSetups\.?(\d*)/gm;
@@ -134,11 +119,11 @@ $(window).ready(function() {
           let activeIndex = my[1];
           if (!activeIndex) {
             // Complete list of active setup functions
-            $('#activeSetups').text(k[1]);
+            $('#activeSetups' + data.sessionId).text(k[1]);
           } else {
             // Addition of single element
-            let current = $('#activeSetups').text();
-            $('#activeSetups').text(current + ',' + k[1]);
+            let current = $('#activeSetups' + data.sessionId).text();
+            $('#activeSetups' + data.sessionId).text(current + ',' + k[1]);
           }
 
         }
@@ -147,10 +132,19 @@ $(window).ready(function() {
   });
 });
 
+function consoleScrollToEnd() {
+  let scrollH = $('#complete').prop('scrollHeight');
+  $('#complete').scrollTop(scrollH);
+}
 
 function saveSessionId() {
   let sessionId = $('#sessionId').val();
-  localStorage.setItem("sessionId", sessionId);
+  let parts = sessionId.split(',');
+  let ids = [];
+  parts.forEach(function(element) {
+    ids.push(parseInt(element, 10));
+  });
+  localStorage.setItem("sessionId", JSON.stringify(ids));
   console.log("Set session ID to " + localStorage.getItem("sessionId"));
   location.reload();
 }
@@ -163,29 +157,63 @@ function appendToRunOrder(index, data, sessionId) {
   let url = new URL(window.location.href);
   url.pathname = '';
   url.search = '?session=' + sessionId + '&module=' + data.moduleName;
+  $('#testsTable' + sessionId + ' tr:last').after(`
+  <tr>
+    <td><a href="${url.href}">${data.moduleName}</a></td>
+    <td>${data.testName}</td>
+    <td id="outcome_${sessionId}_${index}" style="font-weight: ${fontWeight}">${data.outcome}</td>
+  </tr>`);
+}
 
-  $('<li>', {
-    id: 'test_' + index
-  }).append([
-    $('<a>', {
-      id: "module_" + index,
-      text: data.moduleName,
-      href: url.href
-    }).css({
-      display: "inline"
-    }),
-    $('<p>', {
-      id: "name_" + index,
-      text: ' :: ' + data.testName,
-    }).css({
-      display: "inline"
-    }),
-    $('<p>', {
-      id: "outcome_" + index,
-      text: ":  " + data.outcome
-    }).css({
-      display: "inline",
-      fontWeight: fontWeight
-    })
-  ]).appendTo($('#testsList'));
+function sessionTemplate(data) {
+  return `
+  <div id="session${data.sessionId}" style="background: lightgrey">
+    <p>Session ${data.sessionId}</p>
+    <div>
+      <p style="display: inline">Status: </p>
+      <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.status}</p>
+    </div>
+    <p style="display: inline">Currently active setup functions:</p>
+    <p id="activeSetups${data.sessionId}"></p>
+    <div id="running${data.sessionId}">
+      <table>
+        <caption>Live Running:</caption>
+        <tr>
+          <th style="width: 250px">Module</th>
+          <th style="width: 200px">Class</th>
+          <th style="width: 200px">Test Function</th>
+          <th style="width: 150px">Test Phase</th>
+        </tr>
+        <tr>
+          <td id="module${data.sessionId}">None</td>
+          <td id="class${data.sessionId}">None</td>
+          <td id="test${data.sessionId}">None</td>
+          <td id="phase${data.sessionId}">None</td>
+        </tr>
+      </table>
+    </div>
+    <table id="testsTable${data.sessionId}">
+      <caption>Test Results (ordered by execution time):</caption>
+      <tr>
+        <th style="width: 350px">Module</th>
+        <th style="width: 350px">Test Function</th>
+        <th style="width: 350px">Outcome (Bold when complete)</th>
+      </tr>
+    </table>
+  </div>
+  `;
+}
+
+function appendComplete(completed, sessionId) {
+  let summary = '';
+  for (let property in completed.verifications) {
+    summary += property + ': ' + completed.verifications[property]+'; ';
+  }
+  if (summary === '') {
+    summary = 'No saved results';
+  }
+  $('#complete').append('<p class="console">[' + sessionId + '] '
+    + completed.moduleName + ' :: ' + completed.className + ' :: ' + completed.testName
+    + ' :: ' +  completed.fixtureName + ' :: ' + completed.phase + ' :: '
+    + completed.outcome + ' :: ' + summary + '</p>');
 }
