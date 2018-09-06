@@ -88,9 +88,17 @@ $(window).ready(function() {
               $('#' + runOrderParam + "_" + data.sessionId + '_' +
                 runOrderIndex).text(k[1]);
               // Check for test function failure (worst-case) so use bold font.
-              if (runOrderParam === 'outcome' && k[1] === "failed") {
+              if (runOrderParam === 'outcome') {
+                let fontColour = outcomeColour(k[1]);
+                let fontWeight = 'normal';
+                if (k[1] === "failed") {
+                  fontWeight = 'bold';
+                }
                 $('#' + runOrderParam + "_" + data.sessionId + '_' +
-                  runOrderIndex).css('font-weight', 'bold');
+                  runOrderIndex).css({
+                    'font-weight': fontWeight,
+                    'color': fontColour
+                });
               }
             }
           } else {
@@ -151,6 +159,7 @@ function saveSessionId() {
 
 function appendToRunOrder(index, data, sessionId) {
   let fontWeight = 'normal';
+  let fontColour = outcomeColour(data.outcome);
   if (data.status === 'complete') {
      fontWeight = 'bold';
   }
@@ -161,7 +170,7 @@ function appendToRunOrder(index, data, sessionId) {
   <tr>
     <td><a href="${url.href}">${data.moduleName}</a></td>
     <td>${data.testName}</td>
-    <td id="outcome_${sessionId}_${index}" style="font-weight: ${fontWeight}">${data.outcome}</td>
+    <td id="outcome_${sessionId}_${index}" style="font-weight: ${fontWeight}; color: ${fontColour}">${data.outcome}</td>
   </tr>`);
 }
 
@@ -216,4 +225,35 @@ function appendComplete(completed, sessionId) {
     + completed.moduleName + ' :: ' + completed.className + ' :: ' + completed.testName
     + ' :: ' +  completed.fixtureName + ' :: ' + completed.phase + ' :: '
     + completed.outcome + ' :: ' + summary + '</p>');
+}
+
+function outcomeColour(outcome) {
+  let colour;
+  switch (outcome) {
+    case "unexpectedly passed":
+    case "setup errored":
+    case "teardown errored":
+    case "failed":
+      colour = "red";
+      break;
+    case "collections error":
+    case "pytest-warning":
+    case "setup warned":
+    case "teardown warned":
+    case "warned":
+      colour = "orange";
+      break;
+    case "setup skipped":
+    case "teardown skipped":
+    case "skipped":
+      colour = "yellow";
+      break;
+    case "expected failure":
+    case "passed":
+      colour = "green";
+      break;
+    default:
+      colour = "black";
+  }
+  return colour;
 }
