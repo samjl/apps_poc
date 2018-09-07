@@ -13,14 +13,18 @@
       window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
         vars[key] = value;
       });
-      let sessionId;
       if (vars.hasOwnProperty("session")) {
-        sessionId = vars["session"];
-        $('#sessionId').val(sessionId);
-        window.localStorage.setItem("sessionId", sessionId);
+        let sessionId = vars["session"];
+        let parts = sessionId.split(',');
+        let ids = [];
+        parts.forEach(function(element) {
+          ids.push(parseInt(element, 10));
+        });
+
+        localStorage.setItem("sessionId", JSON.stringify(ids));
         console.log("Session ID from url: " + sessionId +
           ", and saved to local storage: " + window.localStorage.getItem(
-            "sessionId", sessionId));
+            "sessionId", ids));
       }
 
       // Inform the server that the session ID has been saved and can redirect
