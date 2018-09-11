@@ -1,22 +1,41 @@
-$(window).ready(function() {
-  let sessionId = localStorage.getItem("sessionId");
-  sessionId = JSON.parse(sessionId);
-  // [null] if not stored - server gets ID for NEXT (not started) session
-  console.log("Session page with saved ID " + sessionId);
-  $('#sessionId').val(sessionId);
+sessionDash = function() {
+  let socket;
+};
 
-  let socket = io();
-  socket.on('connect', function () {
-    console.log("Session Client connected");
-    socket.emit('from', {
+$(window).ready(function() {
+  sessionDash.socket = io();
+  sessionDash.socket.on('connect', function() {
+    console.log("Session client connected");
+    let vars = {};
+    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+      vars[key] = value;
+    });
+    if (vars.hasOwnProperty('sessionIds')) {
+      let parts = vars.sessionIds.split(',');
+      let ids = [];
+        parts.forEach(function(element) {
+        ids.push(parseInt(element, 10));
+      });
+      vars.sessionIds = ids;
+    }
+    if (vars.hasOwnProperty('excludeIds')) {
+      let parts = vars.excludeIds.split(',');
+      let ids = [];
+        parts.forEach(function(element) {
+        ids.push(parseInt(element, 10));
+      });
+      vars.excludeIds = ids;
+    }
+
+    sessionDash.socket.emit('from', {
       page: 'session',
-      sessionId: sessionId
+      params: vars
     });
   });
 
   // Initial insert - currently populated fields:
   // sessionId, collected, status
-  socket.on('session_insert', (data) => {
+  sessionDash.socket.on('session_insert', (data) => {
     console.log("Initial session insert received");
     console.log(data);
     $('#sessionRx').text(data.sessionId);
@@ -29,7 +48,7 @@ $(window).ready(function() {
   });
 
   // Existing session or session in-progress
-  socket.on('session_full', (data) => {
+  sessionDash.socket.on('session_full', (data) => {
     console.log('Completed session received with ID ' + data.sessionId);
     console.log(data);
     $('#sessionRx').text(data.sessionId);
@@ -56,7 +75,7 @@ $(window).ready(function() {
     }
   });
 
-  socket.on('session_update', (data) => {
+  sessionDash.socket.on('session_update', (data) => {
     console.log(data);
     if (data.hasOwnProperty('updatedFields')) {
       // TODO process this at the server end instead - just for array elements like runOrder
@@ -85,8 +104,9 @@ $(window).ready(function() {
               $('#outcome_' + data.sessionId + '_' + runOrderIndex)
                 .css('font-weight', 'bold');
             } else {
-              $('#' + runOrderParam + "_" + data.sessionId + '_' +
-                runOrderIndex).text(k[1]);
+              let testElement = $('#' + runOrderParam + "_" + data.sessionId +
+                '_' + runOrderIndex);
+              testElement.text(k[1]);
               // Check for test function failure (worst-case) so use bold font.
               if (runOrderParam === 'outcome') {
                 let fontColour = outcomeColour(k[1]);
@@ -94,8 +114,7 @@ $(window).ready(function() {
                 if (k[1] === "failed") {
                   fontWeight = 'bold';
                 }
-                $('#' + runOrderParam + "_" + data.sessionId + '_' +
-                  runOrderIndex).css({
+                testElement.css({
                     'font-weight': fontWeight,
                     'color': fontColour
                 });
@@ -125,13 +144,14 @@ $(window).ready(function() {
           let re = /progress\.activeSetups\.?(\d*)/gm;
           let my = re.exec(k[0]);
           let activeIndex = my[1];
+          let activeSetupsElement = $('#activeSetups' + data.sessionId);
           if (!activeIndex) {
             // Complete list of active setup functions
-            $('#activeSetups' + data.sessionId).text(k[1]);
+            activeSetupsElement.text(k[1]);
           } else {
             // Addition of single element
-            let current = $('#activeSetups' + data.sessionId).text();
-            $('#activeSetups' + data.sessionId).text(current + ',' + k[1]);
+            let current = activeSetupsElement.text();
+            activeSetupsElement.text(current + ',' + k[1]);
           }
 
         }
@@ -141,19 +161,47 @@ $(window).ready(function() {
 });
 
 function consoleScrollToEnd() {
-  let scrollH = $('#complete').prop('scrollHeight');
-  $('#complete').scrollTop(scrollH);
+  let completeElement = $('#complete');
+  let scrollH = completeElement.prop('scrollHeight');
+  completeElement.scrollTop(scrollH);
 }
 
-function saveSessionId() {
-  let sessionId = $('#sessionId').val();
-  let parts = sessionId.split(',');
+// For forward and back history
+$(window).on("popstate", function(e) {
+  if (e.originalEvent.state !== null) {
+    location.reload();
+  }
+});
+
+function joinProperties(obj) {
+  let joiner = '=';
+  let separator = "&";
+  return $.map(Object.getOwnPropertyNames(obj), function(k) {
+    return [k, obj[k]].join(joiner)
+  }).join(separator);
+}
+
+function modifySessionIds() {
+  let sessionIds = $('#sessionId').val();
+  let parts = sessionIds.split(',');
   let ids = [];
   parts.forEach(function(element) {
     ids.push(parseInt(element, 10));
   });
-  localStorage.setItem("sessionId", JSON.stringify(ids));
-  console.log("Set session ID to " + localStorage.getItem("sessionId"));
+  let current = window.location.href;
+  // Extract the parameters and modify them.
+  let vars = {};
+  current.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+    vars[key] = value;
+  });
+  if (vars.hasOwnProperty('sessionIds')) {
+    vars.sessionIds = sessionIds;
+    // Reconstruct the URL.
+    current = current.split("?", 1)[0] + '?' + joinProperties(vars);
+  } else {
+    current += "&sessionIds=" + sessionIds;
+  }
+  window.history.pushState({foo: 'bar'}, "some other title", current);
   location.reload();
 }
 

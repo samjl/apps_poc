@@ -16,16 +16,9 @@ app.get('/', function(req, res){
   res.sendFile(__dirname + '/public/index.html');
 });
 
-// Used for fixed links to specific session IDs.
-app.get('/sessionId', function(req, res){
-  res.sendFile(__dirname + '/public/sessionId.html')
-  // This page simply saves the session ID to (client) local storage and
-  // then signals server. Server redirects to the main /session page.
-});
-
-// Main session page/dashboard. Displays test results for a single (mongoDB)
-// test session. Waits for a session to start and updates live results as
-// session progresses.
+// Main session page/dashboard. Displays test results for (mongoDB) test
+// sessions. Waits for a session to start, as required, and updates live
+// results as session progresses.
 app.get('/session', function(req, res){
   res.sendFile(__dirname + '/public/session.html')
 });
@@ -57,13 +50,28 @@ io.on('connection', function(socket){
           ', module = ' + data.params.module);
         retrieveTestLogParts(socket, data.params.session, data.params.module);
         break;
-      case 'sessionId':
-        logSocket(socket, 'Session ID page - redirect to main session page');
-        socket.emit('redirect', '/session');
-        break;
       case 'session':
-        logSocket(socket, 'Session page - ID requested: ' + data.sessionId);
-        sessionDash(socket, data.sessionId);
+        logSocket(socket, 'Session page');
+        console.log(data.params);
+        if (!Object.keys(data.params).length) {
+          console.log('No params received from client, get/track the most' +
+            ' recent session.');
+          _db.collection('sessioncounter').findOne({}, (err, item) => {
+            if (item != null) {
+              let params = {};
+              params.sessionIds = [item.sessionId];
+              sessionDashBySWVersion(socket, params);
+            } else if (err != null) {
+              logSocket(socket, 'Failed to get session counter with MongoDB' +
+                ' err: ' + err);
+            } else {
+              logSocket(socket, 'Failed to get session counter: no items' +
+                ' returned');
+            }
+          });
+        } else {
+          sessionDashBySWVersion(socket, data.params);
+        }
         break;
       default:
         logSocket(socket, 'Unknown page');
@@ -75,31 +83,37 @@ function logSocket(socket, msg) {
   console.log('[' + socket.handshake.address + '] ' + msg);
 }
 
-function sessionDash(socket, sessionIds) {
-  let ids = [];
-  if (!sessionIds[0]) {
-    _db.collection('sessioncounter').findOne({}, (err, item) => {
-      // logSocket(socket, 'Last session ID findOne returned:');
-      // logSocket(socket, util.inspect(item, {showHidden: false, depth: null}));
-      ids.push(item.sessionId + 1);
-      logSocket(socket, 'Waiting for session to start with ID: ' + ids[0]);
-      findAndWatchSessions(socket, ids);
-    });
-  } else {
-    ids = sessionIds;
-    findAndWatchSessions(socket, ids);
+function sessionDashBySWVersion(socket, params) {
+  // Create the change stream pipeline and the find match using the parameters
+  // passed from the client
+  // branchName, branchNumber, buildNumber, sessionIds, excludedIds?
+  let pipelineMatch = {};
+  let findMatch = {};
+  if (params.hasOwnProperty('branchName')) {
+    pipelineMatch['fullDocument.embeddedVersion.branchName'] = params.branchName;
+    findMatch['embeddedVersion.branchName'] = params.branchName;
   }
-}
+  if (params.hasOwnProperty('branchNumber')) {
+    pipelineMatch['fullDocument.embeddedVersion.branchNumber'] = params.branchNumber;
+    findMatch['embeddedVersion.branchNumber'] = params.branchNumber;
+  }
+  if (params.hasOwnProperty('buildNumber')) {
+    pipelineMatch['fullDocument.embeddedVersion.buildNumber'] = params.buildNumber;
+    findMatch['embeddedVersion.buildNumber'] = params.buildNumber;
+  }
+  // excludeIds and sessionIds are currently mutually exclusive
+  if (params.hasOwnProperty('sessionIds')) {
+    pipelineMatch['fullDocument.sessionId'] = {'$in': params.sessionIds};
+    findMatch['sessionId'] = {'$in': params.sessionIds};
+  }
+  if (params.hasOwnProperty('excludeIds')) {
+    pipelineMatch['fullDocument.sessionId'] = {'$nin': params.excludeIds};
+    findMatch['sessionId'] = {'$nin': params.excludeIds};
+  }
 
-function findAndWatchSessions(socket, ids) {
-  logSocket(socket, 'Retrieving/tracking sessions ' + ids);
   let pipeline = [
     {
-      $match: {
-        // Returning the full document and the session ID let's us set up
-        // the change stream before the document is created (_id not required)
-        "fullDocument.sessionId": {"$in": ids}
-      }
+      $match: pipelineMatch
     },
     {
       $project: {
@@ -109,10 +123,15 @@ function findAndWatchSessions(socket, ids) {
       }
     }
   ];
+  sessionsChangeStream(pipeline, socket);
+  // Find existing
+  sessionsFindExisting(findMatch, socket);
+}
+
+function sessionsChangeStream(pipeline, socket) {
   let changeStream = _db.collection('sessions').watch(pipeline,
     {fullDocument: 'updateLookup'});
   changeStream.on("change", function(change) {
-    // logSocket(socket, util.inspect(change, {showHidden: false, depth: null}));
     if (change.operationType === 'insert') {
       logSocket(socket, 'session ' + change.fullDocument.sessionId +
         ' insert (change stream)');
@@ -128,8 +147,10 @@ function findAndWatchSessions(socket, ids) {
         ')');
     }
   });
+}
 
-  _db.collection('sessions').find({"sessionId": {"$in": ids}}).toArray(function(err, docs) {
+function sessionsFindExisting(match, socket) {
+  _db.collection('sessions').find(match).toArray(function(err, docs) {
     if (err == null) {
       logSocket(socket, 'find returned ' + docs.length + ' session docs');
       docs.forEach(function(sessionDoc) {
@@ -138,6 +159,22 @@ function findAndWatchSessions(socket, ids) {
       });
     }
   });
+}
+
+function lastSessionId() {
+  let ids = [];
+  _db.collection('sessioncounter').findOne({}, (err, item) => {
+    ids.push(item.sessionId);
+    return ids;
+  });
+}
+
+function sessionDash(socket, sessionIds) {
+  if (!sessionIds[0]) {
+  } else {
+    ids = sessionIds;
+    findAndWatchSessions(socket, ids);
+  }
 }
 
 function tailOplog(socket) {
