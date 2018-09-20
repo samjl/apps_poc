@@ -26,7 +26,7 @@ let reserve = (function() {
   };
 
   reserve.testRigTemplate = function(data) {
-    let action;
+    let action = 'Reserved';
     let buttonStatus;
     let prevUser;
     let prevIp;
@@ -142,7 +142,7 @@ $(window).ready(function() {
   reserve.socket.on('reserved', (data) => {
     console.log(data);
     let updateClientIp = reserve.ipv6Toipv4(data.ip);
-    let action = 'Reserve';
+    let action = 'Reserved';
     let disable = false;
     let user = reserve.checkUserAnon(data.user, updateClientIp);
     if (updateClientIp === reserve.ip) {
