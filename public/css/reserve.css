@@ -1,17 +1,9 @@
-.console {
-  font-family: 'Andale Mono';
-  font-size: small;
-  color: greenyellow;
-  margin: 1px;
-}
-
 table {
   margin: 4px;
 }
 
 table, th, td {
   border: none;
-  padding: 4px;
 }
 
 th, caption {
@@ -26,4 +18,5 @@ th {
 
 td {
   background: #949494;
+  font-size: smaller;
 }

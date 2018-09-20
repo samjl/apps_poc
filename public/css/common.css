@@ -1,0 +1,9 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+a, p, input, label, th, td, caption {
+  font-family: 'Open Sans', sans-serif;
+  padding-left: 4px;
+}

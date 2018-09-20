@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Test Rig Reservation</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="/css/common.css">
+    <link rel="stylesheet" type="text/css" href="/css/reserve.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script src="/js/reserve.js"></script>
+  </head>
+  <div id="mainContainer">
+    <div style="background: lightgrey">
+      <input id="user" style="display: inline; margin: 4px" type="text">
+      <label for="user" style="display: inline">Please enter a user name to allow easy identification of your IP
+      <span id="ip" style="display: inline">some ip</span>
+      </label>
+    </div>
+    <div>
+      <table id="testrigs">
+        <caption>Test Rig Reservations</caption>
+        <tr>
+          <th style="width: 120px">Test Rig Name</th>
+          <th style="width: 100px">Linux IP</th>
+          <th style="width: 100px">Mngmt IP</th>
+          <th style="width: 80px">Reserve</th>
+          <th style="width: 200px">User</th>
+          <th style="width: 100px">IP</th>
+          <th style="width: 170px">Since</th>
+          <th style="width: 200px">Previous User</th>
+          <th style="width: 100px">Previous IP</th>
+          <th style="width: 170px">From</th>
+          <th style="width: 170px">To</th>
+
+        </tr>
+      </table>
+    </div>
+  </div>
+</html>
