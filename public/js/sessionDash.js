@@ -195,13 +195,15 @@ function modifySessionIds() {
     vars[key] = value;
   });
   if (vars.hasOwnProperty('sessionIds')) {
-    vars.sessionIds = sessionIds;
+    vars.sessionIds = ids.join(',');
     // Reconstruct the URL.
     current = current.split("?", 1)[0] + '?' + joinProperties(vars);
+  } else if (jQuery.isEmptyObject(vars)) {
+    current += "?sessionIds=" + ids.join(',');
   } else {
-    current += "&sessionIds=" + sessionIds;
+    current += "&sessionIds=" + ids.join(',');
   }
-  window.history.pushState({foo: 'bar'}, "some other title", current);
+  window.history.pushState({}, '', current);
   location.reload();
 }
 
