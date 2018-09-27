@@ -1,0 +1,130 @@
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0, 0, 0); /* Fallback color */
+  background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+}
+
+/* The Close Button */
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  /*height: 200px;*/
+}
+
+.close:hover, .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Modal Header */
+.modal-header {
+  font-family: "Roboto", sans-serif;
+  padding: 2px 16px;
+  background-color: #FFFFFF;
+  color: #4CAF50;
+  height: 300px;
+  height: 50%;
+}
+
+.modal-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 250px
+}
+
+.modal-title h2 {
+  font-weight: bold;
+  padding-bottom: 5px;
+  margin: 0px;
+}
+
+/* Modal Body */
+.modal-body {
+  font-family: "Roboto", sans-serif;
+  padding: 2px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Modal Footer */
+.modal-footer {
+  font-family: "Roboto", sans-serif;
+  padding: 2px 16px;
+  background-color: #FFFFFF;
+  color: #4CAF50;
+  /*height: 20%;*/
+}
+
+/* Modal Content */
+.modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: #fefefe;
+  margin: auto;
+  padding: 0;
+  border: 1px solid #888;
+  /*height: 50%;*/
+  width: 20%;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  animation-name: animatetop;
+  animation-duration: 0.4s
+}
+
+/* Add Animation */
+@keyframes animatetop {
+    from {top: -300px; opacity: 0}
+    to {top: 0; opacity: 1}
+}
+
+.login-input {
+  font-family: "Roboto", sans-serif;
+  outline: 0;
+  background: #f2f2f2;
+  width: 100%;
+  border: 0;
+  margin: 0 0 15px;
+  padding: 15px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+#loginCheck {
+  background: #f2f2f2;
+  border: 0;
+  margin: 0 0 15px;
+  padding: 15px;
+}
+
+.login-button {
+  font-family: "Roboto", sans-serif;
+  /*text-transform: uppercase;*/
+  outline: 0;
+  background: #4CAF50;
+  width: 100%;
+  border: 0;
+  padding: 15px;
+  color: #FFFFFF;
+  font-size: 14px;
+  -webkit-transition: all 0.3 ease;
+  transition: all 0.3 ease;
+  cursor: pointer;
+}
+.login-button:hover,.login-button:active,.login-button:focus {
+  background: #43A047;
+}

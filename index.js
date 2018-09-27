@@ -2,6 +2,7 @@ let express = require('express');
 let app = express();
 let http = require('http').Server(app);
 let io = require('socket.io')(http);
+let ldap = require('ldapjs');
 let port = process.env.PORT || 3000;
 const MongoClient = require('mongodb').MongoClient;
 require('console-stamp')(console, 'HH:MM:ss.l'); // For debug only
@@ -10,6 +11,105 @@ const collection = 'testlogs';
 let _db;
 let _local;
 const util = require('util');
+// LDAP constants
+const adminUsername = 'NZ Jenkins';
+const adminPassword = 'NZJ1209$$';
+
+// TODO Deal with LDAP errors. Restart node server? How do we cleanup?
+function ldapClientUnbind(client, username) {
+  client.unbind(function(err) {
+    if (err) {
+      console.log('Failed to unbind LDAP client for user ' + username +
+        ' with error: ' + err);
+    } else {
+      console.log('LDAP client unbind for user ' + username + ' successful');
+    }
+  });
+}
+
+function loginAuthFailure(socket, errorMsg) {
+  socket.emit('login auth', {
+    success: false,
+    msg: errorMsg
+  });
+}
+
+function authenticateClient(username, password, socket) {
+  let ldapURLPart1 = 'ldap://GNET.global.vpn/CN=';
+  let ldapURLPart2 =
+    ',OU=Application,OU=Special Accounts,OU=APAC,DC=GNET,DC=global,DC=vpn';
+  let client = ldap.createClient({
+    url: ldapURLPart1 + adminUsername + ldapURLPart2
+  });
+
+  let opts = {
+    // Filter by short user name (e.g. nzjenkins)
+    filter: '(sAMAccountName=' + username + ')',
+    scope: 'sub',
+    attributes: ['sAMAccountName', 'name']
+  };
+  client.bind(adminUsername, adminPassword, function(err) {
+    if (err) {
+      logSocket(socket, 'Admin LDAP client bind failed with error:');
+      console.log(err);
+    } else {
+      logSocket(socket, 'Admin LDAP client bind successful');
+      client.search('DC=GNET,DC=global,DC=vpn', opts, function(err, search) {
+        if (err) {
+          logSocket(socket, 'Search error:');
+          console.log(err);
+          ldapClientUnbind(client, adminUsername);
+        }
+        logSocket(socket, 'Search successful');
+        let entries = [];
+        search.on('searchEntry', function(entry) {
+          entries.push(entry.object);
+        });
+        search.on('error', function(err) {
+          console.error('error: ' + err.message);
+        });
+        search.on('end', function(result) {
+          // TODO check result.status === 0?
+          if (entries.length === 1) {
+            // let entry = entries[0];
+            let longname = entries[0].name;
+            let userClient = ldap.createClient({
+              url: ldapURLPart1 + username + ldapURLPart2
+            });
+            // Do the authentication
+            logSocket(socket, 'Authenticating user ' + longname);
+            userClient.bind(longname, password, function(err) {
+              if (err) {
+                logSocket(socket, 'User ' + username + ' (' + longname +
+                  ') LDAP client bind' + ' failed with' + ' error:');
+                console.log(err);
+                loginAuthFailure(socket, 'Authentication failed');
+                ldapClientUnbind(userClient, longname);
+              } else {
+                logSocket(socket, 'User ' + username + '(' + longname +
+                  ') LDAP client bind successful');
+                socket.emit('login auth', {
+                  success: true,
+                  user: username,
+                  longName: longname
+                });
+                ldapClientUnbind(userClient, longname);
+              }
+            });
+          } else if (entries.length === 0) {
+            logSocket(socket, 'User name ' + username + ' not found');
+            loginAuthFailure(socket, 'Username not found');
+          } else {
+            // More than 1 user match the username - shouldn't ever see this
+            logSocket(socket, 'Multiple user names found');
+            loginAuthFailure(socket, 'Multiple matching users found!');
+          }
+          ldapClientUnbind(client, adminUsername);
+        });
+      });
+    }
+  });
+}
 
 // Test log viewer.
 app.get('/', function(req, res){
@@ -48,6 +148,22 @@ res.on('connection', function(socket) {
     // Ensure the rig is reserved by the user, release rig and move last user
     // to history.
     testRigRelease(socket, data.testrig, data.user);
+  });
+
+  socket.on('login', function(data) {
+    let socket = this;
+    console.log(data);
+    // Check for an empty password, workaround for
+    // https://github.com/joyent/node-ldapjs/issues/191
+    if (!data.pass) {
+      logSocket(socketm, 'No password supplied');
+      socket.emit('login auth', {
+        success: false,
+        msg: 'No password supplied'
+      });
+    } else {
+      authenticateClient(data.user, data.pass, socket);
+    }
   });
 
   // TODO enhancement: When someone tries to reserve/request a rig that is

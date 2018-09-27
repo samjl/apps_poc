@@ -3,7 +3,7 @@ html, body {
   margin: 0;
 }
 
-a, p, input, label, th, td, caption {
+a, p, input, label, th, td, caption, span {
   font-family: 'Open Sans', sans-serif;
   padding-left: 4px;
 }
