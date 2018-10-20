@@ -1,16 +1,16 @@
-let express = require('express');
-let app = express();
-let http = require('http').Server(app);
-let io = require('socket.io')(http);
-let ldap = require('ldapjs');
-let port = process.env.PORT || 3000;
+'use strict';
+const express = require('express');
+const app = express();
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
+const ldap = require('ldapjs');
+const port = process.env.PORT || 3000;
+
+// MongoDB constants and globals
 const MongoClient = require('mongodb').MongoClient;
-require('console-stamp')(console, 'HH:MM:ss.l'); // For debug only
-const db_name = 'dev';
-const collection = 'testlogs';
+const db_name = 'proto2';  // 'dev'; 'proto2'
 let _db;
-let _local;
-const util = require('util');
+
 // LDAP constants
 const adminUsername = 'NZ Jenkins';
 const adminPassword = 'NZJ1209$$';
@@ -161,7 +161,7 @@ res.on('connection', function(socket) {
     // Check for an empty password, workaround for
     // https://github.com/joyent/node-ldapjs/issues/191
     if (!data.pass) {
-      logSocket(socketm, 'No password supplied');
+      logSocket(socket, 'No password supplied');
       socket.emit('login auth', {
         success: false,
         msg: 'No password supplied'
@@ -417,61 +417,6 @@ function sessionsFindExisting(match, socket) {
   });
 }
 
-function lastSessionId() {
-  let ids = [];
-  _db.collection('sessioncounter').findOne({}, (err, item) => {
-    ids.push(item.sessionId);
-    return ids;
-  });
-}
-
-function sessionDash(socket, sessionIds) {
-  if (!sessionIds[0]) {
-  } else {
-    ids = sessionIds;
-    findAndWatchSessions(socket, ids);
-  }
-}
-
-function tailOplog(socket) {
-  console.log('Start tailing the oplog');
-  // This gets all the matching entries in the complete oplog not just the new ones
-  // so unsure how this will work for connections to tests already running
-  // some logs in db already some updates
-  // How to ensure you get all records - some inserts might already have gone from oplog
-  // Start oplog tail and collect entries, get entries from db, ignore oplog entries
-  // retrieved from the db, continue to scan the oplog
-  _local.collection('oplog.rs', function (err, coll) {
-    let stream = coll.find({'ns': db_name+'.'+collection},
-                           { tailable: true,
-                             awaitdata: true,
-                             numberOfRetries: Number.MAX_VALUE
-                           }).stream();
-
-    stream.on('data', function(val) {
-      // console.log('Doc: %j',val);
-      // modified from original io.emit that would broadcast to all connected clients
-      socket.emit('log message', val);
-      // TODO split into new messages and updates to existing parents
-    });
-
-    stream.on('error', function(val) {
-      console.log('Error: %j', val);
-    });
-
-    stream.on('end', function(){
-      console.log('End of stream');
-    });
-  });
-}
-
-function retrieveTestLog(socket) {
-  _db.collection(collection).find().toArray(function(err, docs) {
-    console.log('Found ' + docs.length);
-    socket.emit('saved messages', docs);
-  });
-}
-
 function retrieveTestLogParts(socket, session, module) {
   let match = {'sessionId': parseInt(session), 'moduleName': module};
   _db.collection('loglinks').find(match).toArray(function(err, links) {
@@ -485,7 +430,7 @@ function retrieveTestLogParts(socket, session, module) {
     console.log('Total logs for module: ' + allLogLinks.length);
     match = {'_id': {'$in': allLogLinks}};
     // Now retrieve the logs from the list of _id's
-    _db.collection(collection).find(match).toArray(function(err, docs) {
+    _db.collection('testlogs').find(match).toArray(function(err, docs) {
       if (err) throw err;
       console.log('Number of log message docs retrieved: ' + docs.length);
       while (docs.length>0) {
@@ -527,8 +472,37 @@ MongoClient.connect('mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSe
   }
   console.log('Connected to db ' + db_name);
   _db = database.db(db_name);
-  _local = database.db('local');
   http.listen(port, function(){
     console.log('listening on *:' + port);
+  });
+
+  database.on('authenticated', (auth) => {
+    console.log("MongoDB authentication event");
+    console.log(auth);
+  });
+
+  database.on('close', (err) => {
+    console.log("MongoDB close event");
+    console.log(err);
+  });
+
+  database.on('error', (err) => {
+    console.log("MongoDB error event");
+    console.log(err);
+  });
+
+  database.on('parseError', (err) => {
+    console.log("MongoDB BSON parse error event");
+    console.log(err);
+  });
+
+  database.on('reconnect', (con) => {
+    console.log("MongoDB reconnect event");
+    console.log(con);
+  });
+
+  database.on('timeout', (err) => {
+    console.log("MongoDB socket timeout event");
+    console.log(err);
   });
 });
