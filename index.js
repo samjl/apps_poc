@@ -118,7 +118,7 @@ app.get('/', function(req, res){
 
 // Test log viewer.
 app.get('/test', function(req, res){
-  res.sendFile(__dirname + '/public/index.html');
+  res.sendFile(__dirname + '/public/testlog.html');
 });
 
 // Main session page/dashboard. Displays test results for (mongoDB) test
