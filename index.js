@@ -111,8 +111,13 @@ function authenticateClient(username, password, socket) {
   });
 }
 
-// Test log viewer.
+// Root - latest session - TODO add main menu screen instead of this
 app.get('/', function(req, res){
+  res.sendFile(__dirname + '/public/session.html');
+});
+
+// Test log viewer.
+app.get('/test', function(req, res){
   res.sendFile(__dirname + '/public/index.html');
 });
 
