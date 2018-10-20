@@ -220,13 +220,13 @@ $(window).ready(function(){
     socket.on('saved messages', function(docs){
       // TODO check for duplicate messages
       console.log(docs.length + " messages received")
-      docs.forEach(function (value) {
+      docs.forEach(function(value) {
         let msg = constructMessage(value);
         allMsgs.push(msg);
         let msgMarkup = getMarkup(msg);
         activeHtml.push(msgMarkup);
         activeMsgIndices.push(msg.index);
-      })
+      });
 
       clusterize.update(activeHtml);
       clusterize.refresh(true);  // refresh to update the row heights
@@ -236,6 +236,14 @@ $(window).ready(function(){
     });
     socket.on('html', function(html){
       clusterize.update(html);
+    });
+    socket.on('all verifications', function(allVerifications) {
+      console.log(allVerifications);
+      for (let i = 0, len = allVerifications.length; i < len; i++) {
+        $('#verifications').append(
+          getVerifyMarkup(allVerifications[i])
+        );
+      }
     });
   });
 });
@@ -250,4 +258,93 @@ function setParentUnfolded(allMsgsIndex) {
   allMsgs[allMsgsIndex].foldState = false;
   allMsgs[allMsgsIndex].foldDisplay.content = "-";
   allMsgs[allMsgsIndex].foldDisplay.tooltip = "Fold higher level logs";
+}
+
+function getVerifyMarkup(verifyData) {
+  // Time stamp
+  // Create a new JavaScript Date object based on the timestamp
+  // multiplied by 1000 so that the argument is in milliseconds, not seconds.
+  let date = new Date(verifyData.timestamp * 1000);
+  let hours = date.getHours();
+  let minutes = "0" + date.getMinutes();
+  let seconds = "0" + date.getSeconds();
+  let millis = "00" + date.getMilliseconds();
+  let formattedTime = hours + ':' + minutes.substr(-2) + ':' +
+    seconds.substr(-2) + '.' + millis.substr(-3);
+  // PASS, FAIL, WARNING or type, P, F, W, O
+  let backgroundColor = 'white';
+  switch (verifyData.type) {
+    case 'F':
+    case 'O':
+      backgroundColor = '#fe2216';
+      break;
+    case 'W':
+      backgroundColor = '#FE7100';
+      break;
+    case 'P':
+      backgroundColor = '#90DD37';
+      break;
+  }
+  // Formatting for phase: setup, call, teardown
+  let phaseBackground = 'white';
+  switch (verifyData.phase) {
+    case 'call':
+      phaseBackground = '#53adff';
+      break;
+  }
+  // Formatting for scope: module, class, function
+  let scopeBackground = 'white';
+  switch (verifyData.scope) {
+    case 'module':
+      scopeBackground = '#fff057';
+      break;
+    case 'class':
+      scopeBackground = '#f7a2ff';
+      break;
+    case 'function':
+      scopeBackground = '#53adff';
+      break;
+  }
+  // Detect new class or test
+  let previousClass;
+  let previousTest;
+  let lastRowClassData = $('#verifications tr:last td:eq(2)');
+  let lastRowTestData = $('#verifications tr:last td:eq(3)');
+  if (lastRowClassData[0]) {
+    previousClass = lastRowClassData[0].innerText;
+    previousTest = lastRowTestData[0].innerText;
+  }
+  let rowStyle = '';
+  let currentClass;
+  let currentTest;
+  if (verifyData.className == null) {
+    currentClass = 'null';
+  } else {
+    currentClass = verifyData.className;
+  }
+  if (verifyData.testName == null) {
+    currentTest = 'null';
+  } else {
+    currentTest = verifyData.testName;
+  }
+  if (previousClass !== undefined && previousClass !== currentClass) {
+    rowStyle = 'border-top: solid black;';  // dashed dotted
+  } else if (previousTest !== undefined && previousTest !== currentTest) {
+    rowStyle = 'border-top: double;';
+  }
+  return `
+  <tr style="${rowStyle}">
+    <td style="max-width: 150px; width: 150px;">${formattedTime}</td>
+    <td style="max-width: 250px; width: 250px;">${verifyData.moduleName}</td>
+    <td style="max-width: 75px; width: 75px;">${verifyData.className}</td>
+    <td style="max-width: 150px; width: 150px;">${verifyData.testName}</td>
+    <td style="max-width: 60px; width: 60px; background-color: ${phaseBackground};">${verifyData.phase}</td>
+    <td style="max-width: 175px; width: 175px;">${verifyData.fixtureName}</td>
+    <td style="max-width: 60px; width: 60px; background-color: ${scopeBackground};">${verifyData.scope}</td>
+    <td style="max-width: 350px; width: 350px;">${verifyData.level1Msg}</td>
+    <td style="max-width: 350px; width: 350px;">${verifyData.verifyMsg}</td>
+    <td style="max-width: 100px; width: 100px; background-color: ${backgroundColor};">${verifyData.status}</td>
+    <td style="max-width: 60px; width: 60px">${verifyData.indexMsg}</td>
+  </tr>
+  `;
 }

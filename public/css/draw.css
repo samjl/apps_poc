@@ -36,6 +36,42 @@ pre {
   margin: 2px;
 }
 
+#verify_headers {
+  flex: 0 0 auto;
+  order: 2;
+  margin: 2px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: small;
+}
+
+#verify_container {
+  flex: 0 0 25%;
+  max-height: 25%;
+  order: 3;
+  overflow-y: scroll;
+  margin: 2px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: small;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+table, th, td {
+  border: 1px solid grey;
+  padding: 2px;
+}
+
+th {
+  background-color: #DDDDDD;
+}
+
+th, td
+{
+  word-break: break-all;
+}
+
 #basic {
   order: 1;
   overflow-y: scroll;
