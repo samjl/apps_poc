@@ -406,14 +406,14 @@ function sessionsChangeStream(pipeline, socket) {
 }
 
 function sessionsFindExisting(match, socket) {
+  logSocket(socket, 'finding:');
   _db.collection('sessions').find(match).toArray(function(err, docs) {
-    if (err == null) {
-      logSocket(socket, 'find returned ' + docs.length + ' session docs');
-      docs.forEach(function(sessionDoc) {
-        logSocket(socket, 'session ' + sessionDoc.sessionId + ' full (find)');
-        socket.emit('session_full', sessionDoc);
-      });
-    }
+    if (err) throw err;
+    logSocket(socket, 'find returned ' + docs.length + ' session docs');
+    docs.forEach(function(sessionDoc) {
+      logSocket(socket, 'session ' + sessionDoc.sessionId + ' full (find)');
+      socket.emit('session_full', sessionDoc);
+    });
   });
 }
 
