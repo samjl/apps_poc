@@ -240,10 +240,12 @@ $(window).ready(function(){
     socket.on('all verifications', function(allVerifications) {
       console.log(allVerifications);
       for (let i = 0, len = allVerifications.length; i < len; i++) {
-        $('#verifications').append(
-          getVerifyMarkup(allVerifications[i])
-        );
+        $('#verifications').append(getVerifyMarkup(allVerifications[i]));
       }
+    });
+    socket.on('verification', function(verification) {
+      console.log(verification);
+      $('#verifications').append(getVerifyMarkup(verification));
     });
   });
 });
