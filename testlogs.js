@@ -1,6 +1,63 @@
-module.exports.getTestLogs = retrieveTestLogParts;
+module.exports.getTestLogs = getTestLogs;
+
+function getTestLogs(_db, socket, session, module) {
+  // Start the DB change stream - get any new logs inserted
+  testLogsLive(_db, socket, session, module);
+  // Get any logs that have already been inserted to the DB
+  retrieveTestLogParts(_db, socket, session, module);
+}
+
+function testLogsLive(_db, socket, session, module) {
+  // Create pipeline
+  console.log("Starting loglinks changestream");
+  let pipeline = [
+    {
+      $match: {'fullDocument.sessionId': parseInt(session), 'fullDocument.moduleName': module}
+    },
+    {
+      $project: {
+        operationType: 1,
+        updateDescription: 1,
+        fullDocument: 1
+      }
+    }
+  ];
+  let changeStream = _db.collection('loglinks').watch(pipeline,
+    {fullDocument: 'updateLookup'});
+  changeStream.on('change', function(change) {
+    if (change.operationType === 'update') {
+      let keys = Object.keys(change.updateDescription.updatedFields);
+      // shoudln't be a list of log messages but just in case
+      let msg_oids = [];
+      for(let i = 0, len = keys.length; i < len; i++) {
+        if (keys[i] === 'logIds') {
+          // { logIds: [ Oid ] }
+          msg_oids.push(change.updateDescription.updatedFields[keys[i]][0]);
+        } else {
+          // { 'logIds.1': Oid }
+          msg_oids.push(change.updateDescription.updatedFields[keys[i]]);
+        }
+        let match = {'_id': {'$in': msg_oids}};
+        const logsPromise = _db.collection('testlogs').find(match).toArray();
+        logsPromise
+          .then(function testLogs(logs) {
+            while (logs.length>0) {
+              // Currently 500 message chunks gives the best client side performance
+              // Just 1 message at a time here for updates
+              socket.emit('saved messages', logs.splice(0, 500));
+            }
+          })
+          .catch(function whenErr(err) {
+            console.log('Error');
+            console.log(err);
+          });
+      }
+    }
+  });
+}
 
 function retrieveTestLogParts(_db, socket, session, module) {
+  // Get any existing logs (could be duplicates)
   let match = {'sessionId': parseInt(session), 'moduleName': module};
   const linksPromise = _db.collection('loglinks').find(match).toArray();
   linksPromise
