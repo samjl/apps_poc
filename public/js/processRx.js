@@ -344,7 +344,54 @@ function getVerifyMarkup(verifyData) {
     <td style="max-width: 350px; width: 350px;">${verifyData.level1Msg}</td>
     <td style="max-width: 350px; width: 350px;">${verifyData.verifyMsg}</td>
     <td style="max-width: 100px; width: 100px; background-color: ${backgroundColor};">${verifyData.status}</td>
-    <td style="max-width: 60px; width: 60px">${verifyData.indexMsg}</td>
+    <td style="max-width: 60px; width: 60px; padding: 0px; border: 0px">
+      <input type="button" onclick="indexLinkClicked(${verifyData.indexMsg})" value="${verifyData.indexMsg}" 
+      style="display: inline-block; position: relative; width:100%;  height: 100%;">
+    </td>
   </tr>
   `;
+}
+
+function indexLinkClicked(index) {
+  let firstMsgIndex = allMsgs[0].index;
+  if (activeMsgIndices.indexOf(index) === -1) {
+    // Unfold all parents (if required), update, then scroll
+    for(let i = 0, len = allMsgs[index - firstMsgIndex].parentIndices.length; i < len; i++) {
+      let parentIndex = allMsgs[index - firstMsgIndex].parentIndices[i];
+      let allMsgsPosition = parentIndex - firstMsgIndex;
+      if(parentIndex === index) {
+        break;
+      } else if (allMsgs[allMsgsPosition].foldState) {
+        setParentUnfolded(allMsgsPosition);
+        let activeIndex = activeMsgIndices.indexOf(parentIndex);
+        activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
+        let insertActiveIndex = activeIndex + 1;
+        for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
+          if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
+            // Child is not already inserted
+            if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
+              // Child is a parent and is folded so add it and skip its children
+              activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
+              activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
+              i += allMsgs[i].numOfChildren;
+            } else {  // check the message
+              activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
+              activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
+            }
+          }
+          insertActiveIndex++;
+        }
+      } else {
+        console.log("Parent with index " + parentIndex + " is unfolded");
+      }
+    }
+    clusterize.update(activeHtml);
+    clusterize.refresh(true);
+  }
+  let messageHeight = $(".containerMessage").first().height();
+  let activeIndex = activeMsgIndices.indexOf(index);
+  // Calculate scroll top based on message/row element height
+  let itemScrollTop = activeIndex * messageHeight;
+  // console.log("Scroll to line, message height: " + messageHeight + ", scroll to: " + itemScrollTop);
+  $('#scrollArea').scrollTop(itemScrollTop)
 }
