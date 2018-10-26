@@ -1,130 +1,263 @@
-module.exports.getTestLogs = getTestLogs;
 
-function getTestLogs(_db, socket, session, module) {
-  // Start the DB change stream - get any new logs inserted
-  liveModuleLogsAndVers(_db, socket, session, module);
-  // Get any logs and verifications that have already been inserted to the DB
-  existingModuleLogsAndVers(_db, socket, session, module);
-}
+class TestLogClientConn {
+  constructor(_db, socket) {
+    this._db = _db;
+    this.socket = socket;
+    // attributes required for timed test log transmission and tracking
+    this.collatedLogs = [];
+    this.streamMsgsRxd = 0;
+    this.msgsTxd = 0;
+    this.lastIndexTxd = 0;  // The message index of the last message
+    this.sessionId = undefined;
+    this.moduleName = undefined;
+    // transmitted. Note that this is not an array index.
+    this.id = new Date().getMilliseconds();
+    let parent = this;
 
-function existingModuleLogsAndVers(_db, socket, session, module) {
-  // Could be duplicates with updates from change stream already set up
-  // but this ensures no logs are missed.
-  let match = {'sessionId': parseInt(session), 'moduleName': module};
-  existingTestLogs(_db, socket, match);
-  existingVerifications(_db, socket, match)
-}
+    this.socket.on('from', (data) => {
+      // getTestLogs(_db, this.socket, data.params.session, data.params.module);
+      this.sessionId = parseInt(data.params.session);
+      this.moduleName = data.params.module;
 
-function liveModuleLogsAndVers(_db, socket, session, module) {
-  // Start change streams to monitor inserts to the loglinks and verifications
-  // collections for the specified session and module.
-  let pipeline = [
-    {
-      $match: {'fullDocument.sessionId': parseInt(session), 'fullDocument.moduleName': module}
-    },
-    {
-      $project: {
-        operationType: 1,
-        updateDescription: 1,
-        fullDocument: 1
-      }
-    }
-  ];
-  testLogsLive(_db, socket, pipeline);
-  verificationsLive(_db, socket, pipeline);
-}
-
-function testLogsLive(_db, socket, pipeline) {
-  console.log("Starting loglinks changestream");
-  let changeStream = _db.collection('loglinks').watch(pipeline,
-    {fullDocument: 'updateLookup'});
-  changeStream.on('change', function(change) {
-    if (change.operationType === 'update') {
-      let keys = Object.keys(change.updateDescription.updatedFields);
-      // shoudln't be a list of log messages but just in case
-      let msg_oids = [];
-      for(let i = 0, len = keys.length; i < len; i++) {
-        if (keys[i] === 'logIds') {
-          // { logIds: [ Oid ] }
-          msg_oids.push(change.updateDescription.updatedFields[keys[i]][0]);
-        } else {
-          // { 'logIds.1': Oid }
-          msg_oids.push(change.updateDescription.updatedFields[keys[i]]);
+      let pipeline = [
+        {
+          $match: {
+            'fullDocument.sessionId': this.sessionId,
+            'fullDocument.moduleName': this.moduleName}
+        },
+        {
+          $project: {
+            operationType: 1,
+            updateDescription: 1,
+            fullDocument: 1
+          }
         }
-        let match = {'_id': {'$in': msg_oids}};
-        const logsPromise = _db.collection('testlogs').find(match).toArray();
-        logsPromise
-          .then(function testLogs(logs) {
-            while (logs.length>0) {
-              // Currently 500 message chunks gives the best client side performance
-              // Just 1 message at a time here for updates
-              socket.emit('saved messages', logs.splice(0, 500));
+      ];
+      // Check if the test status is complete, if it is there is no need to
+      // create the change stream.
+      let findMatch = {
+        'sessionId': this.sessionId,
+        'moduleName': this.moduleName
+      };
+      let projection = {
+        '_id': 0,
+        'status': 1
+      };
+      const statusPromise = this._db.collection('modules').findOne(findMatch, projection);
+      statusPromise
+        .then((doc) => {
+          // FIXME module status is not being set to complete
+          if (!doc || (doc.hasOwnProperty('status') && doc.status !== 'complete')) {
+            this.testLogsLive(pipeline);  // FIXME should pipeline be attr?
+            this.timer = setInterval(this.intervalFunc, 500, this);
+            this.verificationsLive(pipeline);
+            this.testsOutcomeLive(pipeline);
+            this.sessionProgressLive()
+          }
+          this.testLogsExisting(findMatch);
+          this.verificationsExisting(findMatch);
+          this.testsOutcomeExisting(findMatch);  // TODO Reorder?
+          // TODO if status id complete null the class after emitting logs
+        });
+    });
+  }
+
+  // Test log stream updates can occur at a high enough frequency that the
+  // server performance is adversely affected (emits are delayed significantly)
+  // To work around this we collect the logs and emit them periodically
+  // using a timer. Results in a delay in emitting the logs of up to the
+  // value of the timer interval.
+  testLogsLive(pipeline) {
+    console.log("Starting logs change stream");
+    // console.log(pipeline);
+    this.changeStream = this._db.collection('testlogs').watch(pipeline,
+      {fullDocument: 'updateLookup'});
+    this.changeStream.on('change', (change) => {
+      if (change.operationType === 'insert') {
+        // console.log('Messages received: ' + this.streamMsgsRxd +
+        //             ', messages transmitted: ' + this.msgsTxd);
+        if (this.msgsTxd > 0 && this.streamMsgsRxd === this.msgsTxd) {
+          console.log('Clearing array');
+          this.msgsTxd = 0;
+          this.streamMsgsRxd = 0;
+          this.collatedLogs = [];
+        }
+        this.collatedLogs.push(change.fullDocument);
+        this.streamMsgsRxd += 1;
+      }
+    });
+  }
+
+  verificationsLive(pipeline) {
+    console.log("Starting verifications change stream");
+    let changeStream = this._db.collection('verifications').watch(pipeline,
+      {fullDocument: 'updateLookup'});
+    changeStream.on('change', (change) => {
+      if (change.operationType === 'insert') {
+        // console.log("VERIFICATION INSERTED");
+        // console.log(change);
+        // TODO don't send test setup and teardown progress as it becomes
+        // outdated - just send the fixture setup/teardown and test call
+        this.socket.emit('verification', change.fullDocument);
+      }
+      // else {
+      //   console.log('Unhandled change detected');
+      // }
+    });
+  }
+
+  testsOutcomeLive(pipeline) {
+    console.log("Starting test result outcome change stream");
+    let changeStream = this._db.collection('testresults').watch(pipeline,
+      {fullDocument: 'updateLookup'});
+    changeStream.on('change', (change) => {
+      if (change.operationType === 'insert') {
+        console.log("TESTRESULT INSERT");
+        let data = {};
+        data._id = change.fullDocument._id;
+        data.className = change.fullDocument.className;
+        data.testName = change.fullDocument.testName;
+        data.outcome = change.fullDocument.outcome;
+        data.fixtures = change.fullDocument.fixtures;
+        this.socket.emit('test outcome', [data])
+      } else if (change.operationType === 'update') {
+        // testresult updated
+        console.log("TESTRESULT UPDATE");
+        // console.log(change);
+        // console.log(change.updateDescription.updatedFields);
+        let keys = Object.keys(change.updateDescription.updatedFields);
+        for(let i = 0, len = keys.length; i < len; i++) {
+          // console.log(keys[i]);
+          // Get the outcome phase/overall being updated
+          let re = /outcome\.?(\w*)/gm;
+          let my = re.exec(keys[i]);
+          // console.log(my);
+          if (my){
+            let outcomeField = my[1];
+            // console.log("outcome." + my[1] + ": " + change.updateDescription.updatedFields[keys[i]]);
+            let data = {};
+            // FIXME only need to send the outcome here
+            data.outcome = {};
+            data._id = change.fullDocument._id;
+            data.className = change.fullDocument.className;
+            data.testName = change.fullDocument.testName;
+            data.outcome[outcomeField] = change.updateDescription.updatedFields[keys[i]];
+            data.fixtures = change.fullDocument.fixtures;
+            this.socket.emit('test outcome', [data]);
+          }
+        }
+      }
+    });
+  }
+
+  sessionProgressLive() {
+    let pipeline = [
+      {$match: {'fullDocument.sessionId': this.sessionId}},
+      {$project: {operationType: 1, updateDescription: 1}}
+    ];
+    let changeStream = this._db.collection('sessions').watch(pipeline,
+      {fullDocument: 'updateLookup'});
+    changeStream.on('change', (change) => {
+      if (change.operationType === 'update') {
+        // console.log("SESSION PROGRESS UPDATE");
+        let update = change.updateDescription.updatedFields;
+        console.log(update);
+        if (update.hasOwnProperty('progress.completed')) {
+          if (update['progress.completed'].moduleName === this.moduleName) {
+            // console.log('MODULE PROGRESS COMPLETED');
+            // TODO check for test setup and teardown (not fixture) and
+            // don't send
+            console.log(update['progress.completed']);
+            if (update['progress.completed'].fixtureName || update['progress.completed'].phase == 'call') {
+              this.socket.emit('module progress', change.updateDescription.updatedFields['progress.completed']);
             }
-          })
-          .catch(function whenErr(err) {
-            console.log('Error');
-            console.log(err);
-          });
+          }
+        }
+        // Search for progress and runOrder - runOrder not really required as
+        // monitoring testresults in liveTestResultsOutcome
+      }
+    });
+  }
+
+  // Events like timers (and button clicks etc.) have their own this context
+  // so here we use alias the class context this to parent
+  // FIXME move outside class?
+  intervalFunc(parent) {
+    // console.log('Timer fired');
+    let txData = parent.collatedLogs;
+    if (txData.length > 0) {
+      if (txData[txData.length - 1].index !== parent.lastIndexTxd) {
+        parent.msgsTxd += txData.length;
+        // console.log('Emitting ' + txData.length + ' logs, total transmitted ' +
+        //   parent.msgsTxd);
+        parent.socket.emit('saved messages', txData);
+        parent.lastIndexTxd = txData[txData.length - 1].index;
       }
     }
-  });
+  }
+
+  testLogsExisting(match) {
+    // FIXME shuold match be attr?
+    const linksPromise = this._db.collection('loglinks').find(match).toArray();
+    linksPromise
+      // TODO could now do this directly on testresults - perf?
+      .then((links) => {
+        console.log('Found ' + links.length + ' loglink docs');
+        let allLogLinks = [];
+        for (let i = 0, len = links.length; i < len; i++) {
+          console.log('Test: ' + links[i].testName + ' - Number of log links:' +
+            ' ' + links[i].logIds.length);
+          Array.prototype.push.apply(allLogLinks, links[i].logIds);
+        }
+        console.log('Total logs for module: ' + allLogLinks.length);
+        let logsMatch = {'_id': {'$in': allLogLinks}};
+        // Now retrieve the logs from the list of _id's
+        return this._db.collection('testlogs').find(logsMatch).toArray();
+      })
+      .then((logs) => {
+        console.log('Number of log message docs retrieved: ' + logs.length);
+        while (logs.length > 0) {
+          // Currently 500 message chunks gives the best client side performance
+          this.socket.emit('saved messages', logs.splice(0, 500));
+        }
+        console.log('Done - all test logs emitted');
+      })
+      .catch((err) => {
+        console.log('Error');
+        console.log(err);
+      });
+  }
+
+  verificationsExisting(match) {
+    const verifyPromise = this._db.collection('verifications').find(match).toArray();
+    verifyPromise
+      .then((docs) => {
+        console.log('Number of verification docs retrieved: ' + docs.length);
+        while (docs.length>0) {
+          // Currently 500 message chunks gives the best client side performance
+          // TODO ensure these are in time order
+          this.socket.emit('all verifications', docs.splice(0, 500));
+        }
+        console.log('Done - all verifications emitted');
+      })
+      .catch(function whenErr(err) {
+        console.log('Error');
+        console.log(err);
+      });
+  }
+
+  testsOutcomeExisting(match) {
+    let options = {
+      'projection':
+        {'className': 1, 'testName': 1, 'outcome': 1, 'fixtures': 1}
+    };
+    const testsResultsPromise = this._db.collection('testresults').find(match, options).toArray();
+    testsResultsPromise
+      .then((docs) => {
+        console.log(docs);
+        this.socket.emit('test outcome', docs)
+      });
+  }
 }
 
-function verificationsLive(_db, socket, pipeline) {
-  console.log("Starting loglinks changestream");
-  let changeStream = _db.collection('verifications').watch(pipeline,
-    {fullDocument: 'updateLookup'});
-  changeStream.on('change', function(change) {
-    if (change.operationType === 'insert') {
-      socket.emit('verification', change.fullDocument);
-    }
-  });
-}
-
-function existingTestLogs(_db, socket, match) {
-  const linksPromise = _db.collection('loglinks').find(match).toArray();
-  linksPromise
-    .then(function testLogLinks(links) {
-      console.log('Found ' + links.length + ' loglink docs');
-      let allLogLinks = [];
-      for (let i = 0, len = links.length; i < len; i++) {
-        console.log('Test: ' + links[i].testName + ' - Number of log links:' +
-          ' ' + links[i].logIds.length);
-        Array.prototype.push.apply(allLogLinks, links[i].logIds);
-      }
-      console.log('Total logs for module: ' + allLogLinks.length);
-      match = {'_id': {'$in': allLogLinks}};
-      // Now retrieve the logs from the list of _id's
-      return _db.collection('testlogs').find(match).toArray();
-    })
-    .then(function testLogs(logs) {
-      console.log('Number of log message docs retrieved: ' + logs.length);
-      while (logs.length > 0) {
-        // Currently 500 message chunks gives the best client side performance
-        socket.emit('saved messages', logs.splice(0, 500));
-      }
-      console.log('Done - all test logs emitted');
-    })
-    .catch(function whenErr(err) {
-      console.log('Error');
-      console.log(err);
-    });
-}
-
-function existingVerifications(_db, socket, match) {
-  const verifyPromise = _db.collection('verifications').find(match).toArray();
-  verifyPromise
-    .then(function verifications(docs) {
-      console.log('Number of verification docs retrieved: ' + docs.length);
-      while (docs.length>0) {
-        // Currently 500 message chunks gives the best client side performance
-        // TODO ensure these are in time order
-        socket.emit('all verifications', docs.splice(0, 500));
-      }
-      console.log('Done - all verifications emitted');
-    })
-    .catch(function whenErr(err) {
-      console.log('Error');
-      console.log(err);
-    });
-}
+module.exports.TestLogClientConn = TestLogClientConn;

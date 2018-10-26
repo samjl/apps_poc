@@ -2,6 +2,9 @@ let allMsgs = [];  // All messages as js objects
 let activeMsgIndices = [];  // The current unfolded message indices
 let activeHtml = []; // Currently active (unfolded) message HTML markup
 let clusterize;
+let connected = false;
+let previousClass;
+let previousTest;
 
 function formatTimestamp(rxTimestamp) {
   let date = new Date(rxTimestamp);
@@ -188,18 +191,23 @@ $(window).ready(function(){
   });
 
   $(function () {
-    let socket = io();
+    let socket = io('/test');
 
     socket.on('connect', function() {
       console.log("Client connected");
-      let vars = {};
-      window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
-        vars[key] = value;
-      });
-      socket.emit('from', {
-        page: 'test',
-        params: vars
-      });
+      if (connected) {
+        console.log("Don't resend parameters");
+      } else {
+        connected = true;
+        let vars = {};
+        window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+          vars[key] = value;
+        });
+        socket.emit('from', {
+          page: 'test',
+          params: vars
+        });
+      }
     });
 
     // Single (live db update) log message
@@ -238,14 +246,20 @@ $(window).ready(function(){
       clusterize.update(html);
     });
     socket.on('all verifications', function(allVerifications) {
-      console.log(allVerifications);
       for (let i = 0, len = allVerifications.length; i < len; i++) {
         $('#verifications').append(getVerifyMarkup(allVerifications[i]));
       }
     });
     socket.on('verification', function(verification) {
-      console.log(verification);
       $('#verifications').append(getVerifyMarkup(verification));
+    });
+    socket.on('module progress', function(progress) {
+      $('#module_progress').append(getModuleProgressMarkup(progress));
+    });
+    socket.on('test outcome', function(data) {
+      for (let i = 0, len = data.length; i < len; i++) {
+        getModuleStatusMarkup(data[i]);
+      }
     });
   });
 });
@@ -260,6 +274,48 @@ function setParentUnfolded(allMsgsIndex) {
   allMsgs[allMsgsIndex].foldState = false;
   allMsgs[allMsgsIndex].foldDisplay.content = "-";
   allMsgs[allMsgsIndex].foldDisplay.tooltip = "Fold higher level logs";
+}
+
+function getModuleProgressMarkup(progress) {
+  let summary = '';
+  let keys = Object.keys(progress.verifications);
+  for (let i = 0, len = keys.length; i < len; i++) {
+    summary += keys[i] + ': ' + progress.verifications[keys[i]] + ' ';
+  }
+  return `<tr>
+    <td align="left" style="max-width: 250px; width: 250px">${progress.moduleName}</td>
+    <td align="left" style="max-width: 250px; width: 250px">${progress.className}</td>
+    <td align="left" style="max-width: 250px; width: 250px">${progress.testName}</td>
+    <td align="left" style="max-width: 250px; width: 250px">${progress.fixtureName}</td>
+    <td align="left" style="max-width: 150px; width: 150px">${progress.outcome}</td>
+    <td align="left" style="max-width: 150px; width: 150px">${progress.phase}</td>
+    <td align="left" style="max-width: 150px; width: 150px">${summary}</td>
+  </tr>
+  `;
+}
+
+function getModuleStatusMarkup(data) {
+  if($('#status_' + data._id).length) {
+    // Test status element already exists - update it
+    console.log('Test ' + data._id + ' status already exists');
+    let keys = Object.keys(data.outcome);
+    for(let i = 0, len = keys.length; i < len; i++) {
+      console.log('#' + keys[i] + '_' + data._id);
+      $('#' + keys[i] + '_' + data._id).text(data.outcome[keys[i]]);
+    }
+  } else {
+    $('#module_status').append(`
+    <tr id="status_${data._id}">
+      <td align="left" style="max-width: 250px; width: 250px">${data.className}</td>
+      <td align="left" style="max-width: 250px; width: 250px">${data.testName}</td>
+      <td id="setup_${data._id}" align="left" style="max-width: 150px; width: 150px">${data.outcome.setup}</td>
+      <td id="call_${data._id}" align="left" style="max-width: 150px; width: 150px">${data.outcome.call}</td>
+      <td id="teardown_${data._id}" align="left" style="max-width: 150px; width: 150px">${data.outcome.teardown}</td>
+      <td id="overall_${data._id}" align="left" style="max-width: 150px; width: 150px">${data.outcome.overall}</td>
+      <td id="fixtures_${data._id}" align="left" style="max-width: 500px;width: 500px">${data.fixtures}</td>
+    </tr>
+    `)
+  }
 }
 
 function getVerifyMarkup(verifyData) {
@@ -308,14 +364,6 @@ function getVerifyMarkup(verifyData) {
       break;
   }
   // Detect new class or test
-  let previousClass;
-  let previousTest;
-  let lastRowClassData = $('#verifications tr:last td:eq(2)');
-  let lastRowTestData = $('#verifications tr:last td:eq(3)');
-  if (lastRowClassData[0]) {
-    previousClass = lastRowClassData[0].innerText;
-    previousTest = lastRowTestData[0].innerText;
-  }
   let rowStyle = '';
   let currentClass;
   let currentTest;
@@ -334,6 +382,8 @@ function getVerifyMarkup(verifyData) {
   } else if (previousTest !== undefined && previousTest !== currentTest) {
     rowStyle = 'border-top: double;';
   }
+  previousClass = currentClass;
+  previousTest = currentTest;
   return `
   <tr style="${rowStyle}">
     <td style="max-width: 150px; width: 150px;">${formattedTime}</td>
@@ -346,9 +396,9 @@ function getVerifyMarkup(verifyData) {
     <td style="max-width: 350px; width: 350px;">${verifyData.level1Msg}</td>
     <td style="max-width: 350px; width: 350px;">${verifyData.verifyMsg}</td>
     <td style="max-width: 100px; width: 100px; background-color: ${backgroundColor};">${verifyData.status}</td>
-    <td style="max-width: 60px; width: 60px; padding: 0px; border: 0px">
+    <td style="max-width: 64px; width: 64px; padding: 0px; border: 0px">
       <input type="button" onclick="indexLinkClicked(${verifyData.indexMsg})" value="${verifyData.indexMsg}" 
-      style="display: inline-block; position: relative; width:100%;  height: 100%;">
+      style="display: inline-block; position: relative; width:100%;  height:100%;">
     </td>
   </tr>
   `;
@@ -396,4 +446,22 @@ function indexLinkClicked(index) {
   let itemScrollTop = activeIndex * messageHeight;
   // console.log("Scroll to line, message height: " + messageHeight + ", scroll to: " + itemScrollTop);
   $('#scrollArea').scrollTop(itemScrollTop)
+}
+
+function openTab(event, tabName) {
+    // Declare all variables
+    let i, tabcontent, tablinks;
+    // Get all elements with class="tabcontent" and hide them
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    // Get all elements with class="tablinks" and remove the class "active"
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    event.currentTarget.className += " active";
 }

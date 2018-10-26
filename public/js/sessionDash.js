@@ -3,7 +3,7 @@ sessionDash = function() {
 };
 
 $(window).ready(function() {
-  sessionDash.socket = io();
+  sessionDash.socket = io('/session');
   sessionDash.socket.on('connect', function() {
     console.log("Session client connected");
     let vars = {};

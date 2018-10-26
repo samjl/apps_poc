@@ -11,6 +11,7 @@ const MongoClient = require('mongodb').MongoClient;
 const db_name = 'dev';
 let _db;
 const testlogs = require('./testlogs');
+const sessions = require('./sessions');
 
 // LDAP constants
 const adminUsername = 'NZ Jenkins';
@@ -176,57 +177,28 @@ res.on('connection', function(socket) {
   // reserved send a message to the
 });
 
-io.on('connection', function(socket){
-  let handshake = socket.handshake;
-  logSocket(socket, 'New connection');
-
-  // Development PoC options
-  // 1. Tail the oplog: get all oplogs for the collection (already existing in oplog and then tail it)
-  // tailOplog(socket)
-  // 2. Retrieve completed test logs from the proto db testlogs collection and emit all in one go
-  // retrieveTestLog(socket)
-  // 3. Retrieve completed test logs from the proto db testlogs collection then emit in sections
-  // retrieveTestLogParts(socket)
-  // 4. Retrieve completed test logs from the proto db testlogs collection, convert to HTML DOM elements and emit
-  // retrieveTestHtml(socket)
-
-  // On connect client informs server which page is loaded
-  socket.on('from', function(data) {
-    let socket = this;
-    logSocket(socket, 'Client page is ' + data.page);
-    switch (data.page) {
-      case 'test':
-        logSocket(socket, 'Test log page - session = ' + data.params.session +
-          ', module = ' + data.params.module);
-        testlogs.getTestLogs(_db, socket, data.params.session, data.params.module);
-        break;
-      case 'session':
-        logSocket(socket, 'Session page');
-        console.log(data.params);
-        if (!Object.keys(data.params).length) {
-          console.log('No params received from client, get/track the most' +
-            ' recent session.');
-          _db.collection('sessioncounter').findOne({}, (err, item) => {
-            if (item != null) {
-              let params = {};
-              params.sessionIds = [item.sessionId];
-              sessionDashBySWVersion(socket, params);
-            } else if (err != null) {
-              logSocket(socket, 'Failed to get session counter with MongoDB' +
-                ' err: ' + err);
-            } else {
-              logSocket(socket, 'Failed to get session counter: no items' +
-                ' returned');
-            }
-          });
-        } else {
-          sessionDashBySWVersion(socket, data.params);
-        }
-        break;
-      default:
-        logSocket(socket, 'Unknown page');
+let tl = io.of('/test');
+tl.on('connection', function(socket) {
+  logSocket(socket, 'New connection to test logs namespace');
+  let tlClient = new testlogs.TestLogClientConn(_db, socket);
+  socket.on('disconnect', function(socket) {
+    // TODO also cleanup/stop any change streams - test this the null might
+    // remove them already?
+    if (tlClient.timer) {
+      clearInterval(tlClient.timer);
     }
+    tlClient = null;
+    console.log('Disconnect detected for test logs namespace');
   });
+});
+
+let ses = io.of('/session');
+ses.on('connection', function(socket) {
+  logSocket(socket, 'New connection to session namespace');
+  let sesClient = new sessions.SessionDashClientConn(_db, socket);
+  socket.on('disonnect', function(socket) {
+    sesClient = null;
+  })
 });
 
 function testRigRelease(socket, testrig, user) {
@@ -340,90 +312,8 @@ function logSocket(socket, msg) {
   console.log('[' + socket.handshake.address + '] ' + msg);
 }
 
-function sessionDashBySWVersion(socket, params) {
-  // Create the change stream pipeline and the find match using the parameters
-  // passed from the client
-  // branchName, branchNumber, buildNumber, sessionIds, excludedIds?
-  let pipelineMatch = {};
-  let findMatch = {};
-  if (params.hasOwnProperty('branchName')) {
-    pipelineMatch['fullDocument.embeddedVersion.branchName'] = params.branchName;
-    findMatch['embeddedVersion.branchName'] = params.branchName;
-  }
-  if (params.hasOwnProperty('branchNumber')) {
-    pipelineMatch['fullDocument.embeddedVersion.branchNumber'] = params.branchNumber;
-    findMatch['embeddedVersion.branchNumber'] = params.branchNumber;
-  }
-  if (params.hasOwnProperty('buildNumber')) {
-    pipelineMatch['fullDocument.embeddedVersion.buildNumber'] = params.buildNumber;
-    findMatch['embeddedVersion.buildNumber'] = params.buildNumber;
-  }
-  // excludeIds and sessionIds are currently mutually exclusive
-  if (params.hasOwnProperty('sessionIds')) {
-    pipelineMatch['fullDocument.sessionId'] = {'$in': params.sessionIds};
-    findMatch['sessionId'] = {'$in': params.sessionIds};
-  }
-  if (params.hasOwnProperty('excludeIds')) {
-    pipelineMatch['fullDocument.sessionId'] = {'$nin': params.excludeIds};
-    findMatch['sessionId'] = {'$nin': params.excludeIds};
-  }
-
-  let pipeline = [
-    {
-      $match: pipelineMatch
-    },
-    {
-      $project: {
-        operationType: 1,
-        updateDescription: 1,
-        fullDocument: 1
-      }
-    }
-  ];
-  sessionsChangeStream(pipeline, socket);
-  // Find existing
-  sessionsFindExisting(findMatch, socket);
-}
-
-function sessionsChangeStream(pipeline, socket) {
-  let changeStream = _db.collection('sessions').watch(pipeline,
-    {fullDocument: 'updateLookup'});
-  changeStream.on("change", function(change) {
-    if (change.operationType === 'insert') {
-      logSocket(socket, 'session ' + change.fullDocument.sessionId +
-        ' insert (change stream)');
-      socket.emit('session_insert', change.fullDocument);
-    } else if (change.operationType === 'update'){
-      logSocket(socket, 'session ' + change.fullDocument.sessionId +
-        ' update (change stream)');
-      // Add the session ID to then transmitted update.
-      change.updateDescription.sessionId = change.fullDocument.sessionId;
-      socket.emit('session_update', change.updateDescription);
-    } else {
-      logSocket(socket, 'Unhandled change operation (' + change.operationType +
-        ')');
-    }
-  });
-}
-
-function sessionsFindExisting(match, socket) {
-  logSocket(socket, 'finding:');
-  _db.collection('sessions').find(match).toArray(function(err, docs) {
-    if (err) throw err;
-    logSocket(socket, 'find returned ' + docs.length + ' session docs');
-    docs.forEach(function(sessionDoc) {
-      logSocket(socket, 'session ' + sessionDoc.sessionId + ' full (find)');
-      socket.emit('session_full', sessionDoc);
-    });
-  });
-}
-
 // connect to mongoDB database
-MongoClient.connect('mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSet=replSet1', (err, database) => {
-  // ... start the server
-  if (err) {
-    return console.log(err);
-  }
+MongoClient.connect('mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSet=replSet1', {useNewUrlParser: true, poolSize: 100}, (err, database) => {
   console.log('Connected to db ' + db_name);
   _db = database.db(db_name);
   http.listen(port, function(){
