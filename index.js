@@ -8,7 +8,7 @@ const port = process.env.PORT || 3000;
 
 // MongoDB constants and globals
 const MongoClient = require('mongodb').MongoClient;
-const db_name = 'proto2';  // 'dev'; 'proto2'
+const db_name = 'dev';
 let _db;
 const testlogs = require('./testlogs');
 
