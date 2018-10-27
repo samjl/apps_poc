@@ -312,41 +312,24 @@ function logSocket(socket, msg) {
   console.log('[' + socket.handshake.address + '] ' + msg);
 }
 
-// connect to mongoDB database
-MongoClient.connect('mongodb://nz-atsmongo1,nz-atsmongo2,nz-atsmongo3/?replicaSet=replSet1', {useNewUrlParser: true, poolSize: 100}, (err, database) => {
-  console.log('Connected to db ' + db_name);
-  _db = database.db(db_name);
-  http.listen(port, function(){
-    console.log('listening on *:' + port);
-  });
+async function run() {
+  try {
+    const database = await MongoClient.connect('mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27018/?replicaSet=replSet1', {
+      useNewUrlParser: true,
+      poolSize: 100
+    });
+    console.log('Connected to db ' + db_name);
+    _db = database.db(db_name);
+    http.listen(port, function(){
+      console.log('listening on *:' + port);
+    });
+    database.on('left', data => console.log('MongoClient -> left', data));
+    database.on('joined', data => console.log('MongoClient -> joined', data));
+    database.on('fullsetup', () => console.log('MongoClient -> all servers' +
+      ' connected'));
+  } catch(err) {
+    console.log('MongoDB connection error: ' + err);
+  }
+}
 
-  database.on('authenticated', (auth) => {
-    console.log("MongoDB authentication event");
-    console.log(auth);
-  });
-
-  database.on('close', (err) => {
-    console.log("MongoDB close event");
-    console.log(err);
-  });
-
-  database.on('error', (err) => {
-    console.log("MongoDB error event");
-    console.log(err);
-  });
-
-  database.on('parseError', (err) => {
-    console.log("MongoDB BSON parse error event");
-    console.log(err);
-  });
-
-  database.on('reconnect', (con) => {
-    console.log("MongoDB reconnect event");
-    console.log(con);
-  });
-
-  database.on('timeout', (err) => {
-    console.log("MongoDB socket timeout event");
-    console.log(err);
-  });
-});
+run();
