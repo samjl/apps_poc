@@ -203,8 +203,7 @@ $(window).ready(function(){
         window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
           vars[key] = value;
         });
-        socket.emit('from', {
-          page: 'test',
+        socket.emit('init', {
           params: vars
         });
       }

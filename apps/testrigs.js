@@ -5,8 +5,10 @@ class ReserveClientConn {
     this._db = _db;
     this.socket = socket;
     this.namespace = namespace;
-    this.allTestRigs();
 
+    this.socket.on('init', () => {
+      this.allTestRigs();
+    });
     this.socket.on('login', (data) => {
       // Check for an empty password, workaround for
       // https://github.com/joyent/node-ldapjs/issues/191

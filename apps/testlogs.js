@@ -14,7 +14,7 @@ class TestLogClientConn {
     this.id = new Date().getMilliseconds();
     let parent = this;
 
-    this.socket.on('from', (data) => {
+    this.socket.on('init', (data) => {
       // getTestLogs(_db, this.socket, data.params.session, data.params.module);
       this.sessionId = parseInt(data.params.session);
       this.moduleName = data.params.module;

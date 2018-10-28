@@ -4,7 +4,7 @@ class SessionDashClientConn {
     this._db = _db;
     this.socket = socket;
 
-    this.socket.on('from', (data) => {
+    this.socket.on('init', (data) => {
       if (!Object.keys(data.params).length) {
         console.log('No params received from client, get/track the most' +
           ' recent session.');

@@ -1,6 +1,7 @@
 let reserve = (function() {
   let reserve = {
     socket: undefined,
+    connected: false,
     ip: undefined,
     userLongName: undefined
   };
@@ -161,6 +162,12 @@ $(window).ready(function() {
   reserve.resetSocket();
   reserve.socket.on('connect', function() {
     console.log("Reservation client connected");
+    if (reserve.connected) {
+      console.log("Don't re-initialize page");
+    } else {
+      reserve.connected = true;
+      reserve.socket.emit('init');
+    }
   });
 
   reserve.socket.on('all_rigs', (data) => {

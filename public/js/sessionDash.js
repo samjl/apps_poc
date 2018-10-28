@@ -1,36 +1,45 @@
-sessionDash = function() {
-  let socket;
-};
+let sessionDash = (function() {
+  let sessionDash = {
+    socket: undefined,
+    connected: false
+  };
+  return sessionDash;
+})();
 
 $(window).ready(function() {
   sessionDash.socket = io('/session');
   sessionDash.socket.on('connect', function() {
     console.log("Session client connected");
-    let vars = {};
-    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
-      vars[key] = value;
-    });
-    if (vars.hasOwnProperty('sessionIds')) {
-      let parts = vars.sessionIds.split(',');
-      let ids = [];
-        parts.forEach(function(element) {
-        ids.push(parseInt(element, 10));
+    if (sessionDash.connected) {
+      console.log("Don't resend parameters");
+    } else {
+      sessionDash.connected = true;
+      let vars = {};
+      window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+        vars[key] = value;
       });
-      vars.sessionIds = ids;
-    }
-    if (vars.hasOwnProperty('excludeIds')) {
-      let parts = vars.excludeIds.split(',');
-      let ids = [];
-        parts.forEach(function(element) {
-        ids.push(parseInt(element, 10));
-      });
-      vars.excludeIds = ids;
-    }
+      if (vars.hasOwnProperty('sessionIds')) {
+        let parts = vars.sessionIds.split(',');
+        let ids = [];
+          parts.forEach(function(element) {
+          ids.push(parseInt(element, 10));
+        });
+        vars.sessionIds = ids;
+      }
+      if (vars.hasOwnProperty('excludeIds')) {
+        let parts = vars.excludeIds.split(',');
+        let ids = [];
+          parts.forEach(function(element) {
+          ids.push(parseInt(element, 10));
+        });
+        vars.excludeIds = ids;
+      }
 
-    sessionDash.socket.emit('from', {
-      page: 'session',
-      params: vars
-    });
+      console.log(vars);
+      sessionDash.socket.emit('init', {
+        params: vars
+      });
+    }
   });
 
   // Initial insert - currently populated fields:
