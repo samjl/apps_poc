@@ -102,14 +102,19 @@ class SessionDashClientConn {
 
   sessionsFindExisting(findMatch) {
     console.log('Finding existing sessions');
-    this._db.collection('sessions').find(findMatch).toArray((err, docs) => {
-      if (err) throw err;
-      console.log('find returned ' + docs.length + ' session docs');
-      for(let i = 0, len = docs.length; i < len; i++) {
-        console.log('session ' + docs[i].sessionId + ' full (find)');
-        this.socket.emit('session_full', docs[i]);
-      }
-    });
+    const sessionPromise = this._db.collection('sessions').find(findMatch).toArray();
+    sessionPromise
+      .then((docs) => {
+        console.log('find returned ' + docs.length + ' session docs');
+        for(let i = 0, len = docs.length; i < len; i++) {
+          console.log('session ' + docs[i].sessionId + ' full (find)');
+          this.socket.emit('session_full', docs[i]);
+        }
+      })
+      .catch((err) => {
+        console.log('Error');
+        console.log(err);
+      });
   }
 
 }

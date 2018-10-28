@@ -240,7 +240,7 @@ class TestLogClientConn {
         }
         console.log('Done - all verifications emitted');
       })
-      .catch(function whenErr(err) {
+      .catch((err) => {
         console.log('Error');
         console.log(err);
       });
@@ -256,6 +256,10 @@ class TestLogClientConn {
       .then((docs) => {
         console.log(docs);
         this.socket.emit('test outcome', docs)
+      })
+      .catch((err) => {
+        console.log('Error');
+        console.log(err);
       });
   }
 }
