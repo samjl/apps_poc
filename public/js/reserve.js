@@ -40,13 +40,13 @@ let reserve = (function() {
       buttonStatus = '';
       prevIp = data.reservations[0].ip;
       prevUser = data.reservations[0].user;
-      prevStart = data.reservations[0].start;
-      prevEnd = data.reservations[0].end;
+      prevStart = formatDateTime(data.reservations[0].start);
+      prevEnd = formatDateTime(data.reservations[0].end);
     } else {
       // Test rig is reserved
       currentIp = data.reservations[0].ip;
       currentUser = data.reservations[0].user;
-      currentStart = data.reservations[0].start;
+      currentStart = formatDateTime(data.reservations[0].start);
       if (currentUser === reserve.userLongName) {
         action = 'Release';
       } else {
@@ -54,8 +54,8 @@ let reserve = (function() {
       }
       prevIp = data.reservations[1].ip;
       prevUser = data.reservations[1].user;
-      prevStart = data.reservations[1].start;
-      prevEnd = data.reservations[1].end;
+      prevStart = formatDateTime(data.reservations[1].start);
+      prevEnd = formatDateTime(data.reservations[1].end);
     }
     if ($('#loginButton').attr('data-signin') === '') {
       // Not logged in so disable ALL buttons
@@ -92,17 +92,20 @@ let reserve = (function() {
 
   reserve.updateCurrReservation = function(testrig, user, ip, start, action,
                                            disabled) {
+    let startParsed = formatDateTime(start);
     $('#' + testrig + '_user').text(user);
     $('#' + testrig + '_ip').text(reserve.ipv6Toipv4(ip));
-    $('#' + testrig + '_start').text(start);
+    $('#' + testrig + '_start').text(startParsed);
     $('#' + testrig).val(action).prop('disabled', disabled);  // TODO change color/class
   };
 
   reserve.updatePrevReservation = function(testrig, user, ip, start, end) {
+    let startParsed = formatDateTime(start);
+    let endParsed = formatDateTime(end);
     $('#' + testrig + '_prev_user').text(user);
     $('#' + testrig + '_prev_ip').text(reserve.ipv6Toipv4(ip));
-    $('#' + testrig + '_prev_start').text(start);
-    $('#' + testrig + '_prev_end').text(end);
+    $('#' + testrig + '_prev_start').text(startParsed);
+    $('#' + testrig + '_prev_end').text(endParsed);
   };
   reserve.ipv6Toipv4 = function(ip) {
     return ip.replace('::ffff:', '');
@@ -142,6 +145,17 @@ let reserve = (function() {
 
   return reserve;
 })();
+
+function formatDateTime(dateTimeISOStr) {
+  let parsed = '';
+  if (dateTimeISOStr) {
+    let dateTime = new Date(dateTimeISOStr);
+    let time = dateTime.toLocaleTimeString();
+    let date = dateTime.toDateString();
+    parsed = date + ' ' + time;
+  }
+  return parsed;
+}
 
 $(window).ready(function() {
   reserve.resetSocket();
