@@ -223,7 +223,7 @@ function appendToRunOrder(index, data, sessionId) {
      fontWeight = 'bold';
   }
   let url = new URL(window.location.href);
-  url.pathname = '';
+  url.pathname = 'test';
   url.search = '?session=' + sessionId + '&module=' + data.moduleName;
   $('#testsTable' + sessionId + ' tr:last').after(`
   <tr>
