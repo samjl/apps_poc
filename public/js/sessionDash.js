@@ -236,7 +236,12 @@ function appendToRunOrder(index, data, sessionId) {
 function sessionTemplate(data) {
   return `
   <div id="session${data.sessionId}" style="background: lightgrey">
-    <p>Session ${data.sessionId}</p>
+    <p>Test Session ${data.sessionId}</p>
+    <div>
+      <p style="display: inline">Embedded Version: </p>
+      <p style="display: inline; font-weight: bold">${data.embeddedVersion.branchName}.${data.embeddedVersion.branchNumber}.${data.embeddedVersion.buildNumber}</p>
+      <p style="display: inline"> (${data.embeddedVersion.type})</p>
+    </div>
     <div>
       <p style="display: inline">Status: </p>
       <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.status}</p>
@@ -245,7 +250,7 @@ function sessionTemplate(data) {
     <p id="activeSetups${data.sessionId}"></p>
     <div id="running${data.sessionId}">
       <table>
-        <caption>Live Running:</caption>
+        <caption>Currently Running:</caption>
         <tr>
           <th style="width: 250px">Module</th>
           <th style="width: 200px">Class</th>
