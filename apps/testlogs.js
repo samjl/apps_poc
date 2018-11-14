@@ -10,6 +10,9 @@ class TestLogClientConn {
     this.lastIndexTxd = 0;  // The message index of the last message
     this.sessionId = undefined;
     this.moduleName = undefined;
+    this.pipeline = undefined;
+    this.findMatch = undefined;
+    this.projection = undefined;
     // transmitted. Note that this is not an array index.
     this.id = new Date().getMilliseconds();
     let parent = this;
@@ -19,7 +22,7 @@ class TestLogClientConn {
       this.sessionId = parseInt(data.params.session);
       this.moduleName = data.params.module;
 
-      let pipeline = [
+      this.pipeline = [
         {
           $match: {
             'fullDocument.sessionId': this.sessionId,
@@ -35,29 +38,39 @@ class TestLogClientConn {
       ];
       // Check if the test status is complete, if it is there is no need to
       // create the change stream.
-      let findMatch = {
+      this.findMatch = {
         'sessionId': this.sessionId,
         'moduleName': this.moduleName
       };
-      let projection = {
+      this.projection = {
         '_id': 0,
         'status': 1
       };
-      const statusPromise = this._db.collection('modules').findOne(findMatch, projection);
+      const statusPromise = this._db.collection('modules').findOne(this.findMatch,
+        this.projection);
       statusPromise
         .then((doc) => {
-          // FIXME module status is not being set to complete
           if (!doc || (doc.hasOwnProperty('status') && doc.status !== 'complete')) {
-            this.testLogsLive(pipeline);  // FIXME should pipeline be attr?
+            this.testLogsLive(this.pipeline);
             this.timer = setInterval(this.intervalFunc, 500, this);
-            this.verificationsLive(pipeline);
-            this.testsOutcomeLive(pipeline);
+            this.testsOutcomeLive(this.pipeline);
             this.sessionProgressLive()
           }
-          this.testLogsExisting(findMatch);
-          this.verificationsExisting(findMatch);
-          this.testsOutcomeExisting(findMatch);  // TODO Reorder?
+          this.testLogsExisting(this.findMatch);
+          this.testsOutcomeExisting(this.findMatch);
           // TODO if status id complete null the class after emitting logs
+        });
+    });
+
+    this.socket.on('init verifications', () => {
+      const statusPromise = this._db.collection('modules').findOne(this.findMatch,
+        this.projection);
+      statusPromise
+        .then((doc) => {
+          if (!doc || (doc.hasOwnProperty('status') && doc.status !== 'complete')) {
+            this.verificationsLive(this.pipeline);
+          }
+          this.verificationsExisting(this.findMatch);
         });
     });
   }

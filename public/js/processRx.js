@@ -71,9 +71,11 @@ function constructMessage(rxMsg) {
   return {
     // Received message params that do not change after being received
     message: utf8.encode(rxMsg.message),
+    msgClass: "None",
     index: rxMsg.index,
     step: rxMsg.step,
     level: rxMsg.level,
+    levelClass: "",
     numOfChildren: rxMsg.numOfChildren,
     timestamp: formatTimestamp(rxMsg.timestamp),
     // Display parameters that can be modified by user input
@@ -226,7 +228,7 @@ $(window).ready(function(){
     // 1+ (already inserted) messages
     socket.on('saved messages', function(docs){
       // TODO check for duplicate messages
-      console.log(docs.length + " messages received")
+      console.log(docs.length + " messages received");
       docs.forEach(function(value) {
         let msg = constructMessage(value);
         allMsgs.push(msg);
@@ -234,6 +236,8 @@ $(window).ready(function(){
         activeHtml.push(msgMarkup);
         activeMsgIndices.push(msg.index);
       });
+      // Safe to retrieve existing verifications now
+      socket.emit('init verifications', {});
 
       clusterize.update(activeHtml);
       clusterize.refresh(true);  // refresh to update the row heights
@@ -247,6 +251,35 @@ $(window).ready(function(){
     socket.on('all verifications', function(allVerifications) {
       for (let i = 0, len = allVerifications.length; i < len; i++) {
         $('#verifications').append(getVerifyMarkup(allVerifications[i]));
+        // Logs need to have been received before we can process these
+        let msgIndex = allVerifications[i].indexMsg - allMsgs[0].index;
+        let msgClass;
+        switch (allVerifications[i].type) {
+        case 'F':
+        case 'O':
+          msgClass = 'fail';
+          break;
+        case 'W':
+          msgClass = 'warn';
+          break;
+        case 'P':
+          msgClass = 'pass';
+          break;
+        }
+        allMsgs[msgIndex].msgClass = msgClass + 'Foreground';
+        allMsgs[msgIndex].levelClass = msgClass + 'Background';
+        let hierarchy = ['pass', 'warn', 'fail'];
+        for(let i = 0, len = allMsgs[msgIndex].parentIndices.length; i < len; i++) {
+          let parentIndex = allMsgs[msgIndex].parentIndices[i];
+          if (parentIndex === null || parentIndex === msgIndex) {
+            break;
+          }
+          let parentClass = allMsgs[parentIndex - allMsgs[0].index].levelClass;
+          if (hierarchy.indexOf(msgClass) > hierarchy.indexOf(parentClass.substr(0, 4))) {
+            allMsgs[parentIndex - allMsgs[0].index].levelClass = msgClass + 'Background';
+          }
+        }
+        updateActive();
       }
     });
     socket.on('verification', function(verification) {

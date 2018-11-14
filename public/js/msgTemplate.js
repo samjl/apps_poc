@@ -12,10 +12,10 @@ function getMarkup(msgData) {
     <span class="spacer" style="display: ${getDisplay(userControls.tabs)};margin-left: ${msgData.levelDisplay.spacerWidth}px"></span>
     <span id="msg${msgData.index}upLevel" class="triangle-topright" style="display:${levelChangeDisplay};"></span>
     <p id="msg${msgData.index}fold" style="display: ${getDisplay(userControls.folding)};" title="${msgData.foldDisplay.tooltip}" class="container${msgData.foldDisplay.container}Fold">${msgData.foldDisplay.content}</p>
-    <p class="logLevel" title="Log Level" style="display: ${getDisplay(userControls.levels)}">${msgData.level}</p>
-    <p class="levelStep" title="Step" style="display: ${getDisplay(userControls.steps)}">${msgData.step}</p>
-    <span class="triangle-right" style="display: ${getDisplay(userControls.levels)}"></span>
-    <pre id="msg${msgData.index}content" class="None">${msgData.message}</pre>
+    <p class="logLevel ${msgData.levelClass}" title="Log Level" style="display: ${getDisplay(userControls.levels)}">${msgData.level}</p>
+    <p class="levelStep ${msgData.levelClass}" title="Step" style="display: ${getDisplay(userControls.steps)}">${msgData.step}</p>
+    <span class="triangle-right tr-${msgData.levelClass}" style="display: ${getDisplay(userControls.levels)}"></span>
+    <pre id="msg${msgData.index}content" class=${msgData.msgClass}>${msgData.message}</pre>
     <span>&zwnj;</span>
   </div>`;
 }

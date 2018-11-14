@@ -172,6 +172,18 @@ th, td
   font-size: small;
 }
 
+.failBackground {
+  background: red;
+}
+
+.warnBackground {
+  background: orange;
+}
+
+.passBackground {
+  background: green;
+}
+
 .triangle-right {
   width: 0;
   height: 0;
@@ -180,6 +192,18 @@ th, td
   border-left: 12px solid grey;
   border-bottom: 11px solid transparent;
 }
+/* Special cases for the triangle arrow colouring */
+.tr-failBackground {
+  border-left: 12px solid red;
+}
+
+.tr-warnBackground {
+  border-left: 12px solid orange;
+}
+
+.tr-passBackground {
+  border-left: 12px solid green;
+}
 
 .None, .Fail, .Warn, .Pass  {
   margin-right: 2px;
@@ -187,15 +211,15 @@ th, td
   cursor: text;
 }
 
-.Fail {
+.failForeground {
   color: red;
 }
 
-.Warn {
+.warnForeground {
   color: orange;
 }
 
-.Pass {
+.passForeground {
   color: green;
 }
 
