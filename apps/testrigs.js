@@ -49,10 +49,10 @@ class ReserveClientConn {
 
   release(testrigDoc, username) {
     let ip = this.socket.handshake.address;
-    let reserved_ip = testrigDoc.reservations[0].ip;
-    if (reserved_ip === ip) {
-      console.log('Releasing ' + testrigDoc.name + ' for IP ' + ip + ' and' +
-        ' user ' + username);
+    let reserved_user = testrigDoc.reservations[0].user;
+    if (reserved_user === username) {
+      console.log('Releasing ' + testrigDoc.name + ' for user ' + username
+        + ' @ IP ' + ip);
       let end = new Date(Date.now()).toISOString();
       let prevUser = testrigDoc.reservations[0];
       prevUser.end = end;
