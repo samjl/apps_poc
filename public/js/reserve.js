@@ -140,6 +140,12 @@ let reserve = (function() {
     }
   };
 
+  reserve.passwordKeypress = function(event) {
+    if(event.which == 13 || event.keyCode == 13) {
+      reserve.signIn();
+    }
+  };
+
   reserve.exitLogin = function() {
     $('#loginModal').hide();
   };

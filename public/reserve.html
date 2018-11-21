@@ -32,7 +32,7 @@
         </div>
         <div class="modal-body">
           <input class="login-input" id="user" type="text" placeholder="gnet username">
-          <input class="login-input" id="pass" type="password" placeholder="password">
+          <input class="login-input" id="pass" type="password" placeholder="password" onkeypress="reserve.passwordKeypress(event)">
           <button class="login-button" type="submit" onclick="reserve.signIn()">SIGN IN</button>
         </div>
         <div class="modal-footer">
