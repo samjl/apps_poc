@@ -43,9 +43,14 @@ res.on('connection', function(socket) {
   console.log('New connection to reservations namespace from ip ' +
     socket.handshake.address);
   let resClient = new testRigs.ReserveClientConn(_db, socket, res);
-  socket.on('disonnect', () => {
+  socket.on('disconnect', () => {
     resClient = null;
-  })
+  });
+  socket.on('error', (errData) => {
+    console.log('socket error (reservations page)');
+    console.log(errData);
+    console.log('socket client IP: ' + socket.handshake.address);
+  });
 });
 
 let tl = io.of('/test');
@@ -62,6 +67,11 @@ tl.on('connection', function(socket) {
     tlClient = null;
     console.log('Disconnect detected for test logs namespace');
   });
+  socket.on('error', (errData) => {
+    console.log('socket error (test logs page)');
+    console.log(errData);
+    console.log('socket client IP: ' + socket.handshake.address);
+  });
 });
 
 let ses = io.of('/session');
@@ -69,9 +79,14 @@ ses.on('connection', function(socket) {
   console.log('New connection to session namespace from ip ' +
     socket.handshake.address);
   let sesClient = new sessions.SessionDashClientConn(_db, socket);
-  socket.on('disonnect', () =>  {
+  socket.on('disconnect', () =>  {
     sesClient = null;
-  })
+  });
+  socket.on('error', (errData) => {
+    console.log('socket error (session page)');
+    console.log(errData);
+    console.log('socket client IP: ' + socket.handshake.address);
+  });
 });
 
 async function run() {
@@ -91,6 +106,9 @@ async function run() {
       ' connected'));
   } catch(err) {
     console.log('MongoDB connection error: ' + err);
+    setTimeout(function() {
+      run();
+    }, 5000);
   }
 }
 
