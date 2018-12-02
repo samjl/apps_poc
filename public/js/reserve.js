@@ -225,7 +225,8 @@ $(window).ready(function() {
         if ($(this).attr('value') === 'Reserve') {
           $(this).removeAttr('disabled');
         } else if ($(this).attr('value') === 'Release' || $(this).attr('value') === 'Reserved') {
-          if ($('#' + $(this).attr('id') + '_user').text() === reserve.userLongName) {
+          let testrigUser = $('#' + $(this).attr('id') + '_user').text();
+          if (testrigUser === reserve.userLongName || reserve.userLongName === 'Jenkins Test') {
             if ($(this).attr('value') === 'Reserved') {
               $(this).attr('value', 'Release');
             }

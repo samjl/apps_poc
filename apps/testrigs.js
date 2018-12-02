@@ -6,6 +6,8 @@ class ReserveClientConn {
     this.socket = socket;
     this.namespace = namespace;
 
+    this.adminUser = 'Jenkins Test';
+
     this.socket.on('init', () => {
       this.allTestRigs();
     });
@@ -50,7 +52,7 @@ class ReserveClientConn {
   release(testrigDoc, username) {
     let ip = this.socket.handshake.address;
     let reserved_user = testrigDoc.reservations[0].user;
-    if (reserved_user === username) {
+    if (reserved_user === username || this.adminUser === username) {
       console.log('Releasing ' + testrigDoc.name + ' for user ' + username
         + ' @ IP ' + ip);
       let end = new Date(Date.now()).toISOString();
