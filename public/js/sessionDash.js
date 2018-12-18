@@ -243,6 +243,14 @@ function sessionTemplate(data) {
       <p style="display: inline"> (${data.embeddedVersion.type})</p>
     </div>
     <div>
+      <p style="display: inline">Test session: </p>
+      <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.testVersion.jenkinsJobName} #${data.testVersion.jenkinsJobNumber}</p>
+    </div>
+    <div>
+      <p style="display: inline">Test rig: </p>
+      <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.testRig}</p>
+    </div>
+    <div>
       <p style="display: inline">Status: </p>
       <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.status}</p>
     </div>
