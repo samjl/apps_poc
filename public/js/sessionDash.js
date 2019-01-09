@@ -1,43 +1,66 @@
 let sessionDash = (function() {
   let sessionDash = {
     socket: undefined,
-    connected: false
+    connected: false,
+    vars: {},
+    trackingTriggerBuild: undefined,
   };
+
+  sessionDash.triggerTracking = function(data) {
+    // If the jenkins trigger name and not number is specified then display
+    // only the test sessions related to the latest jenkins trigger build
+    // number.
+    if (data.testVersion.hasOwnProperty('triggerJobNumber')) {
+      if (this.vars.hasOwnProperty('triggerName') &&
+          !this.vars.hasOwnProperty('triggerBuild') &&
+          this.trackingTriggerBuild !== undefined &&
+          this.trackingTriggerBuild !== data.testVersion.triggerJobNumber) {
+        console.log('New trigger build detected (was: ' + this.trackingTriggerBuild
+                    + ', now: ' + data.testVersion.triggerJobNumber + '),'
+                    + ' remove existing sessions before adding new sessions.');
+        // Remove all existing sessions rather than reloading the page.
+        $('div[id^=session]').remove();
+      }
+      this.trackingTriggerBuild = data.testVersion.triggerJobNumber;
+    }
+  };
+
   return sessionDash;
 })();
 
 $(window).ready(function() {
   sessionDash.socket = io('/session');
+
   sessionDash.socket.on('connect', function() {
     console.log("Session client connected");
     if (sessionDash.connected) {
       console.log("Don't resend parameters");
     } else {
       sessionDash.connected = true;
-      let vars = {};
       window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
-        vars[key] = value;
+        sessionDash.vars[key] = value;
       });
-      if (vars.hasOwnProperty('sessionIds')) {
-        let parts = vars.sessionIds.split(',');
+      if (sessionDash.vars.hasOwnProperty('sessionIds')) {
+        let parts = sessionDash.vars.sessionIds.split(',');
         let ids = [];
           parts.forEach(function(element) {
           ids.push(parseInt(element, 10));
         });
-        vars.sessionIds = ids;
+        sessionDash.vars.sessionIds = ids;
       }
-      if (vars.hasOwnProperty('excludeIds')) {
-        let parts = vars.excludeIds.split(',');
+      if (sessionDash.vars.hasOwnProperty('excludeIds')) {
+        let parts = sessionDash.vars.excludeIds.split(',');
         let ids = [];
           parts.forEach(function(element) {
           ids.push(parseInt(element, 10));
         });
-        vars.excludeIds = ids;
+        sessionDash.vars.excludeIds = ids;
       }
 
-      console.log(vars);
+      console.log("URL parameters:");
+      console.log(sessionDash.vars);
       sessionDash.socket.emit('init', {
-        params: vars
+        params: sessionDash.vars
       });
     }
   });
@@ -47,6 +70,8 @@ $(window).ready(function() {
   sessionDash.socket.on('session_insert', (data) => {
     console.log("Initial session insert received");
     console.log(data);
+    sessionDash.triggerTracking(data);
+
     $('#sessionRx').text(data.sessionId);
     $('#sessionCollected').text(data.collected.length);
     // $('#plan').text('Test plan: ' + data.plan);
@@ -60,6 +85,8 @@ $(window).ready(function() {
   sessionDash.socket.on('session_full', (data) => {
     console.log('Completed session received with ID ' + data.sessionId);
     console.log(data);
+    sessionDash.triggerTracking(data);
+
     $('#sessionRx').text(data.sessionId);
     $('#sessionCollected').text(data.collected.length);
     // $('#plan').text('Test plan: ' + data.plan);

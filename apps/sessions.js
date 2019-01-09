@@ -9,10 +9,93 @@ class SessionDashClientConn {
         console.log('No params received from client, get/track the most' +
           ' recent session.');
         this.sessionLatest();
+      } else if (Object.keys(data.params).length === 1 &&
+                 data.params.hasOwnProperty('triggerName')) {
+        this.getTrackTrigger(data.params.triggerName);
       } else {
         this.getTrackSession(data.params);
       }
     });
+  }
+
+  async getTrackTrigger(name) {
+    console.log('Track the latest trigger job');
+    this.latestBuild = await this.sessionsLatestTriggerBuild(name);
+    // Track live session inserts for the trigger job and check if the
+    // triggerNumber has incremented in the insert change handler.
+    let pipeline = [
+      {
+        $match: {'fullDocument.testVersion.triggerJobName': name}
+      },
+      {
+        $project: {
+          operationType: 1,
+          updateDescription: 1,
+          fullDocument: 1
+        }
+      }
+    ];
+    console.log("Starting change stream to track new trigger jobs " +
+                "(incremented build number)");
+    this.triggerChangeStream = this._db.collection('sessions').watch(pipeline,
+      {fullDocument: 'updateLookup'});
+    this.triggerChangeStream.on('change', (change) => {
+      if (change.operationType === 'insert') {
+        console.log('session ' + change.fullDocument.sessionId +
+          ' insert (trigger change stream)');
+        if (change.fullDocument.testVersion.hasOwnProperty('triggerJobNumber') &&
+            this.latestBuild < change.fullDocument.testVersion.triggerJobNumber) {
+          this.latestBuild = change.fullDocument.testVersion.triggerJobNumber;
+          let pipeline = [
+            {
+              $match:
+                {
+                  'fullDocument.testVersion.triggerJobName': name,
+                  'fullDocument.testVersion.triggerJobNumber': this.latestBuild
+                }
+            },
+            {
+              $project: {
+                operationType: 1,
+                updateDescription: 1,
+                fullDocument: 1
+              }
+            }
+          ];
+          let findMatch = {
+            'testVersion.triggerJobName': name,
+            'testVersion.triggerJobNumber': change.fullDocument.testVersion.triggerJobNumber
+          };
+          // Track sessions inserted and get existing sessions with the
+          // required trigger job name AND BUILD NUMBER.
+          this.sessionsLive(pipeline);
+          this.sessionsFindExisting(findMatch);
+        }
+      }
+    });
+    // Add the latest trigger job build number to the pipeline
+    pipeline = [
+      {
+        $match:
+          {
+            'fullDocument.testVersion.triggerJobName': name,
+            'fullDocument.testVersion.triggerJobNumber': this.latestBuild
+          }
+      },
+      {
+        $project: {
+          operationType: 1,
+          updateDescription: 1,
+          fullDocument: 1
+        }
+      }
+    ];
+    let findMatch = {
+      'testVersion.triggerJobName': name,
+      'testVersion.triggerJobNumber': this.latestBuild
+    };
+    this.sessionsLive(pipeline);
+    this.sessionsFindExisting(findMatch);
   }
 
   sessionLatest() {
@@ -58,6 +141,14 @@ class SessionDashClientConn {
       pipelineMatch['fullDocument.sessionId'] = {'$nin': params.excludeIds};
       findMatch['sessionId'] = {'$nin': params.excludeIds};
     }
+    if (params.hasOwnProperty('triggerName')) {
+      pipelineMatch['fullDocument.testVersion.triggerJobName'] = params.triggerName;
+      findMatch['testVersion.triggerJobName'] = params.triggerName;
+    }
+    if (params.hasOwnProperty('triggerNumber')) {
+      pipelineMatch['fullDocument.testVersion.triggerJobNumber'] = parseInt(params.triggerNumber);
+      findMatch['testVersion.triggerJobNumber'] = parseInt(params.triggerNumber);
+    }
 
     console.log('Retrieving exiting sessions using parameters:');
     console.log(findMatch);
@@ -83,6 +174,7 @@ class SessionDashClientConn {
 
   sessionsLive(aggPipeline) {
     console.log("Starting sessions change stream");
+    this.changeStream = null;
     this.changeStream = this._db.collection('sessions').watch(aggPipeline,
       {fullDocument: 'updateLookup'});
     this.changeStream.on('change', (change) => {
@@ -115,6 +207,28 @@ class SessionDashClientConn {
         console.log('Error');
         console.log(err);
       });
+  }
+
+  async sessionsLatestTriggerBuild(jobName) {
+    let findMatch = {
+      'testVersion.triggerJobName': jobName
+    };
+    let options = {
+      sort: {'testVersion.triggerJobNumber': -1},
+      projection: {"testVersion.triggerJobNumber": 1},
+      limit: 1
+    };
+    // response is an array of 1 item
+    let err, response = await this._db.collection('sessions').find(findMatch, options).toArray();
+    if (err) {
+      console.log('Failed to find latest build number for trigger job ' + jobName);
+      console.log(err);
+    } else if (response.length === 0) {
+      console.log('Failed to find session doc for latest build number for' +
+        ' trigger job ' + jobName);
+    } else {
+      return response[0].testVersion.triggerJobNumber;
+    }
   }
 
 }
