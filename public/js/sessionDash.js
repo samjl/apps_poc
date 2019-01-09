@@ -234,21 +234,35 @@ function appendToRunOrder(index, data, sessionId) {
 }
 
 function sessionTemplate(data) {
+  let jenkinsJob = '';
+  if (data.testVersion.hasOwnProperty('jenkinsJobName') && data.testVersion.hasOwnProperty('jenkinsJobNumber')) {
+    jenkinsJob = `
+    <div>
+      <p style="display: inline">Jenkins Test Session: </p>
+      <p id="test_session${data.sessionId}" style="display: inline; font-weight: bold">${data.testVersion.jenkinsJobName} #${data.testVersion.jenkinsJobNumber}</p>
+    </div>`;
+  }
+  let triggerJob = '';
+  if (data.testVersion.hasOwnProperty('triggerJobName') && data.testVersion.hasOwnProperty('triggerJobNumber')) {
+    triggerJob = `
+    <div>
+      <p style="display: inline">Jenkins Trigger: </p>
+      <p id="trigger${data.sessionId}" style="display: inline; font-weight: bold">${data.testVersion.triggerJobName} #${data.testVersion.triggerJobNumber}</p>
+    </div>`;
+  }
   return `
   <div id="session${data.sessionId}" style="background: lightgrey">
-    <p>Test Session ${data.sessionId}</p>
+    <p>Test Session (DB session ID: ${data.sessionId})</p>
     <div>
       <p style="display: inline">Embedded Version: </p>
       <p style="display: inline; font-weight: bold">${data.embeddedVersion.branchName}.${data.embeddedVersion.branchNumber}.${data.embeddedVersion.buildNumber}</p>
       <p style="display: inline"> (${data.embeddedVersion.type})</p>
     </div>
+    ${jenkinsJob}
+    ${triggerJob}
     <div>
-      <p style="display: inline">Test session: </p>
-      <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.testVersion.jenkinsJobName} #${data.testVersion.jenkinsJobNumber}</p>
-    </div>
-    <div>
-      <p style="display: inline">Test rig: </p>
-      <p id="status${data.sessionId}" style="display: inline; font-weight: bold">${data.testRig}</p>
+      <p style="display: inline">Test Rig: </p>
+      <p id="testrig${data.sessionId}" style="display: inline; font-weight: bold">${data.testRig}</p>
     </div>
     <div>
       <p style="display: inline">Status: </p>
