@@ -37,22 +37,22 @@ function formatFolding(numOfChildren) {
 }
 
 function getSpacerWidth(level, step) {
-  if (level > 1 && step === 1) {
+  if (level > 0 && step === 1) {
     return {
       levelChange: "block",
-      spacerWidth: (level - 2) * 24
+      spacerWidth: (level - 1) * 24
     };
   } else {
     return {
       levelChange: "none",
-      spacerWidth: (level - 1) * 24
+      spacerWidth: level * 24
     };
   }
 }
 
 function getFoldState(level, parentIndices) {
   let folded = false;
-  if (level > 1) {
+  if (level > 0) {
     // Check global fold all state, this state can be overridden by the fold status of the parents
     if (userControls.foldAll == "on") {
       folded = true;
