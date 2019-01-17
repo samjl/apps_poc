@@ -25,11 +25,11 @@ function formatFolding(numOfChildren) {
   let display = {container: "", content: "", tooltip: ""};
   if (numOfChildren > 0) {
       if (userControls.foldAll == "on") {
-        display.content = "+"
-        display.tooltip = "Unfold higher level logs"
+        display.content = "+";
+        display.tooltip = "Unfold higher level logs";
       } else {
-        display.content = "-"
-        display.tooltip = "Fold higher level logs"
+        display.content = "-";
+        display.tooltip = "Fold higher level logs";
       }
     } else {
       // Message is (currently) not a parent (has no children)
@@ -42,12 +42,14 @@ function getSpacerWidth(level, step) {
   if (level > minLevel && step === 1) {
     return {
       levelChange: "block",
-      spacerWidth: (level - minLevel - 1) * 24
+      spacerWidth: (level - minLevel - 1) * 9,
+      logLevelSpacers: maxLevel - level - 1
     };
   } else {
     return {
       levelChange: "none",
-      spacerWidth: (level - minLevel) * 24
+      spacerWidth: (level - minLevel) * 9,
+      logLevelSpacers: maxLevel - level - 1
     };
   }
 }

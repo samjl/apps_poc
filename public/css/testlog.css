@@ -6,7 +6,7 @@ html, body {
 h1, p {
   margin: 0;
   font-family: "Courier New", Courier, monospace;
-  font-size: medium;
+  font-size: x-small;
 }
 
 pre {
@@ -15,7 +15,7 @@ pre {
   padding: 0;
   border: none;
   font-family: "Courier New", Courier, monospace;
-  font-size: medium;
+  font-size: small;
 }
 
 #container {
@@ -77,7 +77,7 @@ th, td
 }
 
 .containerMessage, .containerNoFold, .containerFold, .timestamp, .logLevel, .levelStep, .source { /* .index, */
-  height: 22px;
+  height: 16px;
   cursor: default;
   display: flex;
   flex-flow: row no-wrap;
@@ -93,7 +93,7 @@ th, td
 }
 
 .index {
-  height: 21px;
+  height: 15px;
   border-bottom: 1px solid black;
   cursor: default;
   display: flex;
@@ -104,25 +104,25 @@ th, td
 }
 
 .spacer {
-  height: 22px;
+  height: 16px;
   width: 0;
   padding: 0;
   margin: 0;
 }
 
 .containerMessage {
-  height: 22px;
+  height: 16px;
   width: 100%;
   justify-content: flex-start;
 }
 
 .index {
-  flex: 0 0 40px;
-  margin-right: 2px;
+  flex: 0 0 30px;
+  margin-right: 1px;
   background:black;
   justify-content:center;
   color:white;
-  font-size: small;
+  font-size: x-small;
   cursor: default;
   padding-left: 2px;
   padding-right: 2px;
@@ -130,7 +130,7 @@ th, td
 
 .timestamp {
   flex: 0 0 130px;
-  margin-right: 2px;
+  margin-right: 1px;
   background: #303030;
   color: white;
 }
@@ -138,14 +138,14 @@ th, td
 .triangle-topright {
   width: 0;
   height: 0;
-  margin-right: 2px;
-  border-top: 22px solid #505050;
-  border-left: 22px solid transparent;
+  margin-right: 1px;
+  border-top: 16px solid #505050;
+  border-left: 8px solid transparent;
 }
 
 .containerNoFold, .containerFold {
-  flex: 0 0 22px;
-  margin-right: 2px;
+  flex: 0 0 8px;
+  margin-right: 1px;
   background: #505050;
   color: #F8F8F8;
   -webkit-transition: background 0.5s, color 0.5s; /* Safari */
@@ -159,17 +159,17 @@ th, td
 }
 
 .logLevel {
-  flex: 0 0 22px;
+  flex: 0 0 8px;
   margin-right: 0px;
   background: grey;
   color: white;
 }
 
 .levelStep {
-  flex: 0 0 22px;
+  flex: 0 0 16px;
   margin-right: 0px;
   background: grey;
-  font-size: small;
+  font-size: x-small;
 }
 
 .failBackground {
@@ -188,9 +188,9 @@ th, td
   width: 0;
   height: 0;
   margin-right: 2px;
-  border-top: 11px solid transparent;
-  border-left: 12px solid grey;
-  border-bottom: 11px solid transparent;
+  border-top: 8px solid transparent;
+  border-left: 6px solid grey;
+  border-bottom: 8px solid transparent;
 }
 /* Special cases for the triangle arrow colouring */
 .tr-failBackground {
