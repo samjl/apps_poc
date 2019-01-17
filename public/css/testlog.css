@@ -111,7 +111,6 @@ th, td
 }
 
 .containerMessage {
-  height: 16px;
   width: 100%;
   justify-content: flex-start;
 }
@@ -236,6 +235,8 @@ th, td
   color: white;
   background-color: black;
   white-space: nowrap;
+  padding: 1px;
+  margin-left: 2px;
 }
 
 /* Tabbed interface */
