@@ -7,6 +7,8 @@ let txd_verify_init = false; // Message sent to server to initialise test
 // verification document search and tracking
 let previousClass;
 let previousTest;
+const minLevel = 0;
+const maxLevel = 9;
 
 function formatTimestamp(rxTimestamp) {
   let date = new Date(rxTimestamp);
@@ -37,22 +39,22 @@ function formatFolding(numOfChildren) {
 }
 
 function getSpacerWidth(level, step) {
-  if (level > 0 && step === 1) {
+  if (level > minLevel && step === 1) {
     return {
       levelChange: "block",
-      spacerWidth: (level - 1) * 24
+      spacerWidth: (level - minLevel - 1) * 24
     };
   } else {
     return {
       levelChange: "none",
-      spacerWidth: level * 24
+      spacerWidth: (level - minLevel) * 24
     };
   }
 }
 
 function getFoldState(level, parentIndices) {
   let folded = false;
-  if (level > 0) {
+  if (level > minLevel) {
     // Check global fold all state, this state can be overridden by the fold status of the parents
     if (userControls.foldAll == "on") {
       folded = true;
@@ -132,12 +134,24 @@ function updateActive() {
   clusterize.refresh(true);
 }
 
+function updateLevelDropDown() {
+  for (let i=minLevel; i<=maxLevel; i++) {
+    let levelText = i;
+    if (i === maxLevel) {
+      levelText = i + ' (All Levels)';
+    }
+    let optionElement = `<option value="${i}">${levelText}</option>`;
+    $('#maxLevelDisplay').append(optionElement);
+  }
+}
+
 $(window).ready(function(){
   // Set the height of the scroll area
   let contentHeight = document.getElementById("content").clientHeight;
   let scrollHeight = parseInt(contentHeight / 22) * 22;
   console.log("Content height: " + contentHeight + ", scroll height set to: " + scrollHeight);
   $("#scrollArea").css('max-height', scrollHeight + 'px');
+  updateLevelDropDown();
 
   clusterize = new Clusterize({
     scrollId: 'scrollArea',

@@ -12,14 +12,12 @@ function foldUnfoldAll() {
   let selector = document.getElementById("maxLevelDisplay");
   if ($("#foldUnfoldAll:checked").val() === "on") {
     userControls.foldAll = true;
-    // TODO change 0 to min
-    selector.value = 0;
-    foldToLevel(0);
+    selector.value = minLevel;
+    foldToLevel(minLevel);
   } else {
     userControls.foldAll = false;
-    // TODO change 5 to max
-    selector.value = 5;
-    foldToLevel(5);
+    selector.value = maxLevel;
+    foldToLevel(maxLevel);
   }
 }
 
