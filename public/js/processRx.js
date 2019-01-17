@@ -94,6 +94,7 @@ function constructMessage(rxMsg) {
       // Used for debugging only - client side only uses the message indices above
       return item.slice(-4);
     }),
+    tags: rxMsg.tags,
   };
 }
 

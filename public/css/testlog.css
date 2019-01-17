@@ -223,14 +223,19 @@ th, td
   color: green;
 }
 
-.source {
+.rightSideContainer {
+  display: flex;
+  flex-grow: 1;
+  flex-flow: row-reverse no-wrap;
+  justify-content: flex-end;
+}
+
+.tags {
   width:auto;
   font-size: small;
   color: white;
+  background-color: black;
   white-space: nowrap;
-  flex-flow: row-reverse no-wrap;
-  flex-grow: 1;
-  justify-content: flex-end;
 }
 
 /* Tabbed interface */

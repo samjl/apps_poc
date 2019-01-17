@@ -16,6 +16,9 @@ function getMarkup(msgData) {
     <p class="levelStep ${msgData.levelClass}" title="Step" style="display: ${getDisplay(userControls.steps)}">${msgData.step}</p>
     <span class="triangle-right tr-${msgData.levelClass}" style="display: ${getDisplay(userControls.levels)}"></span>
     <pre id="msg${msgData.index}content" class=${msgData.msgClass}>${msgData.message}</pre>
+    <div class="rightSideContainer">
+      <pre id="msg${msgData.index}tags" class="tags">${msgData.tags}</pre>
+    </div>
     <span>&zwnj;</span>
   </div>`;
 }
