@@ -220,15 +220,15 @@ th, td
 }
 /* Special cases for the triangle arrow colouring */
 .tr-failBackground {
-  border-left: 12px solid red;
+  border-left: var(--triangle-right-left) solid red;
 }
 
 .tr-warnBackground {
-  border-left: 12px solid orange;
+  border-left: var(--triangle-right-left) solid orange;
 }
 
 .tr-passBackground {
-  border-left: 12px solid green;
+  border-left: var(--triangle-right-left) solid green;
 }
 
 .None, .Fail, .Warn, .Pass  {
