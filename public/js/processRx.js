@@ -39,16 +39,21 @@ function formatFolding(numOfChildren) {
 }
 
 function getSpacerWidth(level, step) {
+  let bodyStyles = window.getComputedStyle(document.body);
+  let secondSize = bodyStyles.getPropertyValue('--secondary-size');
+  let marginRight = bodyStyles.getPropertyValue('--margin-right');
+  let spacerWidth = parseInt(secondSize.substring(0, secondSize.length-2)) +
+    parseInt(marginRight.substring(0, marginRight.length-2));
   if (level > minLevel && step === 1) {
     return {
       levelChange: "block",
-      spacerWidth: (level - minLevel - 1) * 9,
+      spacerWidth: (level - minLevel - 1) * spacerWidth,
       logLevelSpacers: maxLevel - level - 1
     };
   } else {
     return {
       levelChange: "none",
-      spacerWidth: (level - minLevel) * 9,
+      spacerWidth: (level - minLevel) * spacerWidth,
       logLevelSpacers: maxLevel - level - 1
     };
   }
