@@ -3,6 +3,8 @@ let activeMsgIndices = [];  // The current unfolded message indices
 let activeHtml = []; // Currently active (unfolded) message HTML markup
 let clusterize;
 let connected = false;
+let txd_verify_init = false; // Message sent to server to initialise test
+// verification document search and tracking
 let previousClass;
 let previousTest;
 
@@ -236,8 +238,12 @@ $(window).ready(function(){
         activeHtml.push(msgMarkup);
         activeMsgIndices.push(msg.index);
       });
-      // Safe to retrieve existing verifications now
-      socket.emit('init verifications', {});
+      // Safe to retrieve existing verifications now (do this once)
+      if (!txd_verify_init) {
+        console.log('Sending init verifications');
+        socket.emit('init verifications', {});
+        txd_verify_init = true;
+      }
 
       clusterize.update(activeHtml);
       clusterize.refresh(true);  // refresh to update the row heights
@@ -279,8 +285,8 @@ $(window).ready(function(){
             allMsgs[parentIndex - allMsgs[0].index].levelClass = msgClass + 'Background';
           }
         }
-        updateActive();
       }
+      updateActive();
     });
     socket.on('verification', function(verification) {
       $('#verifications').append(getVerifyMarkup(verification));
