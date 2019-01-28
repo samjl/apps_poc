@@ -10,6 +10,12 @@ let previousTest;
 const minLevel = 0;
 const maxLevel = 9;
 
+/**
+ * Parse the date and time received in the message as Date object and
+ * return the format to be displayed (hours:minutes:seconds.milliseconds).
+ * @param {string} rxTimestamp - The timestamp of the recieved message.
+ * @returns {string} - The formatted message time to be displayed.
+ */
 function formatTimestamp(rxTimestamp) {
   let date = new Date(rxTimestamp);
   let ts = [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds(), date.getUTCMilliseconds()];
@@ -21,6 +27,14 @@ function formatTimestamp(rxTimestamp) {
   return ts[0] + ":" + ts [1] + ":" + ts[2] + "." + ts[3];
 }
 
+/**
+ * Return the message folding display properties dependent upon whether the
+ * message is a parent message or not.
+ * @param {number} numOfChildren - The number of child messages (following
+ * messages with a higher log level) the message has.
+ * @returns {{container: (string), tooltip: (string), content: (string)}} -
+ * Folding related display properties.
+ */
 function formatFolding(numOfChildren) {
   let display = {container: "", content: "", tooltip: ""};
   if (numOfChildren > 0) {
@@ -38,6 +52,16 @@ function formatFolding(numOfChildren) {
   return display
 }
 
+/**
+ * Return style, style and number of elements used to indent the folding
+ * controls.
+ * @param {number} level - The log level of the message.
+ * @param {number} step - The step index at the current log level.
+ * @returns {{levelChange: (string), spacerWidth: (number), logLevelSpacers: (number)}}
+ * - The display style of the level change element (msg*upLevel), the width of
+ * the spacer between the timestamp and the fold controls (indentation),
+ * the number of spacers between the fold controls and the level indicator.
+ */
 function getSpacerWidth(level, step) {
   let bodyStyles = window.getComputedStyle(document.body);
   let secondSize = bodyStyles.getPropertyValue('--secondary-size');
@@ -59,6 +83,17 @@ function getSpacerWidth(level, step) {
   }
 }
 
+/**
+ * Determines whether a message is currently folded (not visible) or not.
+ * This depends upon both the global "fold all" state and the fold state of
+ * all the message's parents. If the global fold all is enabled or any
+ * parents fold state is true then the message should be folded (not
+ * visible).
+ * @param {number} level - The log level of the message.
+ * @param {[]} parentIndices - Parent message index (array indexed by
+ * log level). Indices >= message level are invalid.
+ * @return {boolean} - Whether the message is folded or not.
+ */
 function messageIsFolded(level, parentIndices) {
   if (level > minLevel) {
     if (userControls.foldAll == "on") {
@@ -77,6 +112,14 @@ function messageIsFolded(level, parentIndices) {
 }
 
 
+/**
+ * Convert a received new message or update to an object containing the
+ * message details and the (client only) display properties.
+ * @param {Object} rxMsg - Received message object.
+ * @param {Object} existingMsg - An existing message object (same as created
+ * by this function).
+ * @returns {{level: (string|Object|string), index: *, step: (*|string), _id: *, message: Uint8Array, numOfChildren: *, indexClass: string, levelDisplay: {spacerWidth, levelChange, logLevelSpacers}, timestamp: *, parentIndices: *, parents: *, tags: *}}
+ */
 function constructMessage(rxMsg, existingMsg=null) {
   // Base message attributes applicable to new messages and updates.
   let msg = {
@@ -125,6 +168,12 @@ function constructMessage(rxMsg, existingMsg=null) {
   return msg;
 }
 
+/**
+ * Construct a CSS3 class from the message type (result of a verification).
+ * @param {string} msgType - The single character message type code.
+ * @param {string} append - Append to the type string to form the CSS class.
+ * @returns {string} msgClass - The CSS3 class name.
+ */
 function getMessageTypeFormat(msgType, append) {
   let msgClass = "";
   switch (msgType) {
@@ -142,7 +191,7 @@ function getMessageTypeFormat(msgType, append) {
   return msgClass
 }
 
-
+/** User interface control state. */
 class UserControls {
   constructor() {
     this.index = true;  // initially checked / on
@@ -159,6 +208,11 @@ class UserControls {
 
 let userControls = new UserControls();
 
+/**
+ * Return the CSS3 display type.
+ * @param {boolean|undefined} control - Whether the control is enabled.
+ * @returns {string} - CSS3 display type.
+ */
 function getDisplay(control) {
   if (control) {
     return "flex";
@@ -167,6 +221,10 @@ function getDisplay(control) {
   }
 }
 
+/**
+ * Redo the entire active HTML array based upon the currently active
+ * messages. Update and refresh clusterize.
+ */
 function updateActive() {
   // Reapply all global controls to template for every active (unfolded) message
   // Currently folded messages are updated with the global control state when they are unfolded (made active)
@@ -179,6 +237,13 @@ function updateActive() {
   clusterize.refresh(true);
 }
 
+/**
+ * Update the log level selection drop down menu with the minimum and
+ * maximum levels set in this module. These values are currently hardcoded,
+ * a future enhancement is intended to receive these values from the server.
+ * The hardcoded values in this module may be changed to suit the logging
+ * application.
+ */
 function updateLevelDropDown() {
   for (let i=minLevel; i<=maxLevel; i++) {
     let levelText = i;
@@ -272,6 +337,13 @@ $(window).ready(function(){
       }
     });
 
+    /**
+     * 1+ new log messages received from the server.
+     * These messages may be live messages as they are inserted into
+     * the database as the test runs or messages that have previously been
+     * inserted into the database.
+     * @param {[]} docs - Array of log messages (documents).
+     */
     socket.on('saved messages', function(docs){
       // TODO check for duplicate messages
       console.log(docs.length + " new messages received");
@@ -302,6 +374,12 @@ $(window).ready(function(){
       // not being able to scroll to bottom/flickering
       // skipping records when scrolling past cluster transitions
     });
+    /**
+     * 1+ log updated messages from the server (Relevant to live tests only).
+     * This indicates an increment to a parent message number of children
+     * counter (required to update the number of children to fold).
+     * @param {[]} docs - Array of log messages (documents).
+     */
     socket.on('updated messages', function(docs){
       console.log(docs.length + " updated messages received");
       docs.forEach(function(value) {
@@ -337,6 +415,12 @@ $(window).ready(function(){
   });
 });
 
+/**
+ * Use a child message type to update the parent style if required.
+ * @param {number} msgIndex - The rx index of the message.
+ * @param {string|null} msgType - The type of verification message (null
+ * for regular log messages that are not linked to a verification document).
+ */
 function applyVerification(msgIndex, msgType) {
   console.log('Applying verification type ' + msgType +
     ' to message index (of rx\'d messages) ' + msgIndex);
@@ -356,18 +440,33 @@ function applyVerification(msgIndex, msgType) {
   }
 }
 
+/**
+ * Set a parent message fold button style style to folded (children hidden
+ * from user).
+ * @param allMsgsIndex - The rx index of the message.
+ */
 function setParentFolded(allMsgsIndex) {
   allMsgs[allMsgsIndex].foldState = true;
   allMsgs[allMsgsIndex].foldDisplay.content = "+";
   allMsgs[allMsgsIndex].foldDisplay.tooltip = "Unfold higher level logs";
 }
 
+/**
+ * Set a parent message fold button style style to unfolded (children
+ * visible).
+ * @param allMsgsIndex - The rx index of the message.
+ */
 function setParentUnfolded(allMsgsIndex) {
   allMsgs[allMsgsIndex].foldState = false;
   allMsgs[allMsgsIndex].foldDisplay.content = "-";
   allMsgs[allMsgsIndex].foldDisplay.tooltip = "Fold higher level logs";
 }
 
+/**
+ * Apply HTML markup to a row in the module progress tag.
+ * @param {Object} progress - Update object (DB document) received.
+ * @returns {string} - HTML markup
+ */
 function getModuleProgressMarkup(progress) {
   let summary = '';
   let keys = Object.keys(progress.verifications);
@@ -386,6 +485,10 @@ function getModuleProgressMarkup(progress) {
   `;
 }
 
+/**
+ * Add a test item to the test status tab.
+ * @param {Object} data - Received test outcome update.
+ */
 function getModuleStatusMarkup(data) {
   if($('#status_' + data._id).length) {
     // Test status element already exists - update it
@@ -410,6 +513,12 @@ function getModuleStatusMarkup(data) {
   }
 }
 
+/**
+ * Create the HTML markup for a received verification object/DB document.
+ * To be appended to the Verifications tab.
+ * @param {Object} verifyData - Verification document received.
+ * @returns {string} HTML markup for a verification.
+ */
 function getVerifyMarkup(verifyData) {
   // Time stamp
   // Create a new JavaScript Date object based on the timestamp
@@ -496,6 +605,11 @@ function getVerifyMarkup(verifyData) {
   `;
 }
 
+/**
+ * Process a click event on a verification entry button that links to the
+ * associated message. Scrolls the main log to the associated message.
+ * @param {number} index - The rx index of the message.
+ */
 function indexLinkClicked(index) {
   let firstMsgIndex = allMsgs[0].index;
   if (activeMsgIndices.indexOf(index) === -1) {
@@ -540,6 +654,15 @@ function indexLinkClicked(index) {
   $('#scrollArea').scrollTop(itemScrollTop)
 }
 
+/**
+ * Switch to/open one of the tabs in the bottom pane. Current tabs: Test
+ * Status, Module Progress, Verifications.
+ * @param {Object} event - The event that fired.
+ * @param {String} event.currentTarget.className - The class of the element
+ * that triggered the event.
+ * @param {String} tabName - The name of the tab associated with the
+ * clicked element.
+ */
 function openTab(event, tabName) {
     // Declare all variables
     let i, tabcontent, tablinks;
