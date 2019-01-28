@@ -1,8 +1,6 @@
 let allMsgs = [];  // All messages as js objects
 let activeMsgIndices = [];  // The current unfolded message indices
 let activeHtml = [];  // Currently active (unfolded) message HTML markup
-let verificationsQueue = {};  // Queue of verifications received before
-// their corresponding message.
 let clusterize;
 let connected = false;
 let txd_verify_init = false; // Message sent to server to initialise test
@@ -101,6 +99,7 @@ function constructMessage(rxMsg, existingMsg=null) {
     // controlled by userControls.index and userControls.tabs respectively.
     indexClass: "index",
     levelDisplay: getSpacerWidth(rxMsg.level, rxMsg.step),
+    type: rxMsg.type,
   };
   if (existingMsg) {
     // Updating an existing message when an update is received.
@@ -284,13 +283,11 @@ $(window).ready(function(){
           activeHtml.push(msgMarkup);
           activeMsgIndices.push(msg.index);
         }
-        // Check if associated verification is in the queue, if so apply it.
         let msgIndex = msg.index - allMsgs[0].index;
-        if (verificationsQueue.hasOwnProperty(msgIndex)) {
-          console.log('Applying existing verification data to rx\'d message');
-          applyVerification(msgIndex, verificationsQueue[msgIndex]);
-          // Remove the verification now it has been processed
-          delete verificationsQueue[msgIndex];
+        // If the message has a type (result of verify function or other
+        // exception) then update the message's parent messages (color code).
+        if (msg.type !== null) {
+          applyVerification(msgIndex, msg.type);
         }
       });
       // Safe to retrieve existing verifications now (do this once)
@@ -322,29 +319,12 @@ $(window).ready(function(){
       console.log('All verifications rx\'d (' + allVerifications.length + ')');
       for (let i = 0, len = allVerifications.length; i < len; i++) {
         $('#verifications').append(getVerifyMarkup(allVerifications[i]));
-        // Logs need to have been received before we can process these
-        let msgIndex = allVerifications[i].indexMsg - allMsgs[0].index;
-        applyVerification(msgIndex, allVerifications[i]);
       }
-      clusterize.update(activeHtml);
-      clusterize.refresh(true);
     });
     socket.on('verification', function(verification) {
       $('#verifications').append(getVerifyMarkup(verification));
       console.log('Verification rx\'d for message with index ' +
         verification.indexMsg);
-      let msgIndex = verification.indexMsg - allMsgs[0].index;
-      if (allMsgs.length > msgIndex+1) {
-        // okay to update message and the parents
-        applyVerification(msgIndex, verification);
-        clusterize.update(activeHtml);
-        clusterize.refresh(true);
-      } else {
-        // add it to an array so it can be done when the message is received
-        verificationsQueue[msgIndex] = verification;
-        console.log('Failed to add verification info to log message' +
-          ' with index ' + msgIndex + ' (doesn\'t exist yet)');
-      }
     });
     socket.on('module progress', function(progress) {
       $('#module_progress').append(getModuleProgressMarkup(progress));
@@ -357,12 +337,10 @@ $(window).ready(function(){
   });
 });
 
-function applyVerification(msgIndex, verification) {
-  console.log('Applying verification to message index (of rx\'d messages) ' + msgIndex);
-  allMsgs[msgIndex].msgClass = getMessageTypeFormat(verification.type, 'Foreground');
-  let levelClass = getMessageTypeFormat(verification.type, 'Background')
-  allMsgs[msgIndex].levelClass = levelClass;
-  activeHtml[msgIndex] = getMarkup(allMsgs[msgIndex]);
+function applyVerification(msgIndex, msgType) {
+  console.log('Applying verification type ' + msgType +
+    ' to message index (of rx\'d messages) ' + msgIndex);
+  let levelClass = getMessageTypeFormat(msgType, 'Background');
   let hierarchy = ['pass', 'warn', 'fail'];
   for(let i = 0, len = allMsgs[msgIndex].parentIndices.length; i < len; i++) {
     let parentIndex = allMsgs[msgIndex].parentIndices[i] - allMsgs[0].index;
