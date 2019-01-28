@@ -19,7 +19,7 @@ const maxLevel = 9;
 function formatTimestamp(rxTimestamp) {
   let date = new Date(rxTimestamp);
   let ts = [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds(), date.getUTCMilliseconds()];
-  for (let x = 0;  x < ts.length; x++) {
+  for (let x = 0,  n=ts.length; x < n; x++) {
     if (ts[x] < 10) {
       ts[x] = "0" + ts[x];
     }
@@ -99,7 +99,7 @@ function messageIsFolded(level, parentIndices) {
     if (userControls.foldAll == "on") {
       return true;
     }
-    for (let i = 0; i < level - minLevel; i++) {
+    for (let i = 0, n = level - minLevel; i < n; i++) {
       if (parentIndices[i] !== null &&
           allMsgs[parentIndices[i] - allMsgs[0].index].foldState) {
         // Return as soon as a parent control is set to fold all direct
@@ -229,7 +229,7 @@ function updateActive() {
   // Reapply all global controls to template for every active (unfolded) message
   // Currently folded messages are updated with the global control state when they are unfolded (made active)
   activeHtml = [];  // Required for level filtering
-  for (let i=0; i<activeMsgIndices.length; i++) {
+  for (let i=0, n=activeMsgIndices.length; i<n; i++) {
     let allMsgsPosition = activeMsgIndices[i]-allMsgs[0].index;
     activeHtml[i] = getMarkup(allMsgs[allMsgsPosition]);
   }
@@ -284,7 +284,7 @@ $(window).ready(function(){
 
       console.log("unfold children");
       let insertActiveIndex = activeIndex + 1;
-      for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
+      for (let i=allMsgsPosition+1, n=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i<=n; i++) {
         if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
           // Child is not already inserted
           if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
@@ -305,7 +305,7 @@ $(window).ready(function(){
       activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
 
       console.log("fold children");
-      for (let i=activeIndex+1; i<=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i++) {
+      for (let i=activeIndex+1, n=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i<=n; i++) {
         if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[allMsgsPosition].numOfChildren) {
           activeHtml.splice(activeIndex+1, 1);  // remove index for each subsequent child
           activeMsgIndices.splice(activeIndex+1, 1);
@@ -347,8 +347,8 @@ $(window).ready(function(){
     socket.on('saved messages', function(docs){
       // TODO check for duplicate messages
       console.log(docs.length + " new messages received");
-      docs.forEach(function(value) {
-        let msg = constructMessage(value);
+      for (let i=0, n=docs.length; i<n; i++) {
+        let msg = constructMessage(docs[i]);
         allMsgs.push(msg);
         if (!messageIsFolded(msg.level, msg.parentIndices)) {
           let msgMarkup = getMarkup(msg);
@@ -361,7 +361,7 @@ $(window).ready(function(){
         if (msg.type !== null) {
           applyVerification(msgIndex, msg.type);
         }
-      });
+      };
       // Safe to retrieve existing verifications now (do this once)
       if (!txd_verify_init) {
         console.log('Sending init verifications');
@@ -382,14 +382,14 @@ $(window).ready(function(){
      */
     socket.on('updated messages', function(docs){
       console.log(docs.length + " updated messages received");
-      docs.forEach(function(value) {
-        let allMsgsIndex = value.index - allMsgs[0].index;
-        allMsgs[allMsgsIndex] = constructMessage(value, allMsgs[allMsgsIndex]);
-        let activeIndex = activeMsgIndices.indexOf(value.index);
+      for (let i=0, n=docs.length; i<n; i++) {
+        let allMsgsIndex = docs[i].index - allMsgs[0].index;
+        allMsgs[allMsgsIndex] = constructMessage(docs[i], allMsgs[allMsgsIndex]);
+        let activeIndex = activeMsgIndices.indexOf(docs[i].index);
         if (activeIndex !== -1) {
           activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsIndex]);
         }
-      });
+      };
       clusterize.update(activeHtml);
       clusterize.refresh(true);
     });
@@ -624,7 +624,7 @@ function indexLinkClicked(index) {
         let activeIndex = activeMsgIndices.indexOf(parentIndex);
         activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
         let insertActiveIndex = activeIndex + 1;
-        for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
+        for (let i=allMsgsPosition+1, n=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i<=n; i++) {
           if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
             // Child is not already inserted
             if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
