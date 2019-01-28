@@ -1,6 +1,8 @@
 let allMsgs = [];  // All messages as js objects
 let activeMsgIndices = [];  // The current unfolded message indices
-let activeHtml = []; // Currently active (unfolded) message HTML markup
+let activeHtml = [];  // Currently active (unfolded) message HTML markup
+let verificationsQueue = {};  // Queue of verifications received before
+// their corresponding message.
 let clusterize;
 let connected = false;
 let txd_verify_init = false; // Message sent to server to initialise test
@@ -59,50 +61,86 @@ function getSpacerWidth(level, step) {
   }
 }
 
-function getFoldState(level, parentIndices) {
-  let folded = false;
+function messageIsFolded(level, parentIndices) {
   if (level > minLevel) {
-    // Check global fold all state, this state can be overridden by the fold status of the parents
     if (userControls.foldAll == "on") {
-      folded = true;
+      return true;
     }
-    for (let i = 0; i < newMsg.level-1; i++) {
-      // Check content of fold element of parent as soon as a parent is folded break out
-      // Can't use getElementById because parent might not be in current (clusterize) cluster
-      if (allMsgs[parentIndices[i] - 1].foldState) {
-        folded = true;
-        break;
+    for (let i = 0; i < level - minLevel; i++) {
+      if (parentIndices[i] !== null &&
+          allMsgs[parentIndices[i] - allMsgs[0].index].foldState) {
+        // Return as soon as a parent control is set to fold all direct
+        // children.
+        return true;
       }
     }
-  }
-  return folded
+  } // Message is at minimum level and cannot be folded away (hidden).
+  return false;
 }
 
-function constructMessage(rxMsg) {
-  return {
+
+function constructMessage(rxMsg, existingMsg=null) {
+  // Base message attributes applicable to new messages and updates.
+  let msg = {
     // Received message params that do not change after being received
     message: utf8.encode(rxMsg.message),
-    msgClass: "None",
     index: rxMsg.index,
     step: rxMsg.step,
     level: rxMsg.level,
-    levelClass: "",
     numOfChildren: rxMsg.numOfChildren,
     timestamp: formatTimestamp(rxMsg.timestamp),
-    // Display parameters that can be modified by user input
-    foldState: getFoldState(),
-    foldDisplay: formatFolding(rxMsg.numOfChildren),
-    indexClass: "index",
-    levelDisplay: getSpacerWidth(rxMsg.level, rxMsg.step),
-    // Debug
-    parentIndices: rxMsg.parentIndices,
     _id: rxMsg._id.slice(-4),
+    parentIndices: rxMsg.parentIndices,
     parents: rxMsg.parents.map(function(item) {
-      // Used for debugging only - client side only uses the message indices above
+      // DEBUG Used for debugging only - client side only uses the message
+      //  indices above.
       return item.slice(-4);
     }),
     tags: rxMsg.tags,
+    // Fixed display parameters. Visibility of index and tab spacers are
+    // controlled by userControls.index and userControls.tabs respectively.
+    indexClass: "index",
+    levelDisplay: getSpacerWidth(rxMsg.level, rxMsg.step),
   };
+  if (existingMsg) {
+    // Updating an existing message when an update is received.
+    msg.msgClass = existingMsg.msgClass;
+    msg.levelClass = existingMsg.levelClass;
+    msg.foldState = existingMsg.foldState;
+    if (existingMsg.numOfChildren === 0 && rxMsg.numOfChildren > 0) {
+      msg.foldDisplay = formatFolding(rxMsg.numOfChildren);
+    } else {
+      msg.foldDisplay = existingMsg.foldDisplay;
+    }
+  } else {
+    // Initializing a new message's display attributes.
+    msg.msgClass = getMessageTypeFormat(rxMsg.type, "Foreground");
+    msg.levelClass = getMessageTypeFormat(rxMsg.type, "Background");
+    if (userControls.foldAll == "on") {
+      msg.foldState = true;
+    } else {
+      msg.foldState = false;
+    }
+    msg.foldDisplay = formatFolding(rxMsg.numOfChildren);
+  }
+  return msg;
+}
+
+function getMessageTypeFormat(msgType, append) {
+  let msgClass = "";
+  switch (msgType) {
+  case 'F':
+  case 'O':
+    msgClass = 'fail' + append;
+    break;
+  case 'W':
+    msgClass = 'warn' + append;
+    break;
+  case 'P':
+    msgClass = 'pass' + append;
+    break;
+  }
+  return msgClass
 }
 
 
@@ -235,30 +273,25 @@ $(window).ready(function(){
       }
     });
 
-    // Single (live db update) log message
-    socket.on('log message', function(msg){
-      // Check message is a new message - just log updates to console for now
-      if (msg.o.hasOwnProperty("index") && msg.o.message.charAt(0) !== "{") {
-        $('#main').append(applyTemplate(msg));
-        newDomDiv = applyTemplate(msg);
-        // console.log(newDomDiv)
-        // allData.push(newDomDiv);
-        // clusterize.update(allData);
-      } else {
-        // console.log(msg);
-      }
-      // window.scrollTo(0, document.body.scrollHeight);
-    });
-    // 1+ (already inserted) messages
     socket.on('saved messages', function(docs){
       // TODO check for duplicate messages
-      console.log(docs.length + " messages received");
+      console.log(docs.length + " new messages received");
       docs.forEach(function(value) {
         let msg = constructMessage(value);
         allMsgs.push(msg);
-        let msgMarkup = getMarkup(msg);
-        activeHtml.push(msgMarkup);
-        activeMsgIndices.push(msg.index);
+        if (!messageIsFolded(msg.level, msg.parentIndices)) {
+          let msgMarkup = getMarkup(msg);
+          activeHtml.push(msgMarkup);
+          activeMsgIndices.push(msg.index);
+        }
+        // Check if associated verification is in the queue, if so apply it.
+        let msgIndex = msg.index - allMsgs[0].index;
+        if (verificationsQueue.hasOwnProperty(msgIndex)) {
+          console.log('Applying existing verification data to rx\'d message');
+          applyVerification(msgIndex, verificationsQueue[msgIndex]);
+          // Remove the verification now it has been processed
+          delete verificationsQueue[msgIndex];
+        }
       });
       // Safe to retrieve existing verifications now (do this once)
       if (!txd_verify_init) {
@@ -266,52 +299,52 @@ $(window).ready(function(){
         socket.emit('init verifications', {});
         txd_verify_init = true;
       }
-
       clusterize.update(activeHtml);
       clusterize.refresh(true);  // refresh to update the row heights
       // refresh seems to fix the following issues:
       // not being able to scroll to bottom/flickering
       // skipping records when scrolling past cluster transitions
     });
-    socket.on('html', function(html){
-      clusterize.update(html);
+    socket.on('updated messages', function(docs){
+      console.log(docs.length + " updated messages received");
+      docs.forEach(function(value) {
+        let allMsgsIndex = value.index - allMsgs[0].index;
+        allMsgs[allMsgsIndex] = constructMessage(value, allMsgs[allMsgsIndex]);
+        let activeIndex = activeMsgIndices.indexOf(value.index);
+        if (activeIndex !== -1) {
+          activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsIndex]);
+        }
+      });
+      clusterize.update(activeHtml);
+      clusterize.refresh(true);
     });
     socket.on('all verifications', function(allVerifications) {
+      console.log('All verifications rx\'d (' + allVerifications.length + ')');
       for (let i = 0, len = allVerifications.length; i < len; i++) {
         $('#verifications').append(getVerifyMarkup(allVerifications[i]));
         // Logs need to have been received before we can process these
         let msgIndex = allVerifications[i].indexMsg - allMsgs[0].index;
-        let msgClass;
-        switch (allVerifications[i].type) {
-        case 'F':
-        case 'O':
-          msgClass = 'fail';
-          break;
-        case 'W':
-          msgClass = 'warn';
-          break;
-        case 'P':
-          msgClass = 'pass';
-          break;
-        }
-        allMsgs[msgIndex].msgClass = msgClass + 'Foreground';
-        allMsgs[msgIndex].levelClass = msgClass + 'Background';
-        let hierarchy = ['pass', 'warn', 'fail'];
-        for(let i = 0, len = allMsgs[msgIndex].parentIndices.length; i < len; i++) {
-          let parentIndex = allMsgs[msgIndex].parentIndices[i];
-          if (parentIndex === null || parentIndex === msgIndex) {
-            break;
-          }
-          let parentClass = allMsgs[parentIndex - allMsgs[0].index].levelClass;
-          if (hierarchy.indexOf(msgClass) > hierarchy.indexOf(parentClass.substr(0, 4))) {
-            allMsgs[parentIndex - allMsgs[0].index].levelClass = msgClass + 'Background';
-          }
-        }
+        applyVerification(msgIndex, allVerifications[i]);
       }
-      updateActive();
+      clusterize.update(activeHtml);
+      clusterize.refresh(true);
     });
     socket.on('verification', function(verification) {
       $('#verifications').append(getVerifyMarkup(verification));
+      console.log('Verification rx\'d for message with index ' +
+        verification.indexMsg);
+      let msgIndex = verification.indexMsg - allMsgs[0].index;
+      if (allMsgs.length > msgIndex+1) {
+        // okay to update message and the parents
+        applyVerification(msgIndex, verification);
+        clusterize.update(activeHtml);
+        clusterize.refresh(true);
+      } else {
+        // add it to an array so it can be done when the message is received
+        verificationsQueue[msgIndex] = verification;
+        console.log('Failed to add verification info to log message' +
+          ' with index ' + msgIndex + ' (doesn\'t exist yet)');
+      }
     });
     socket.on('module progress', function(progress) {
       $('#module_progress').append(getModuleProgressMarkup(progress));
@@ -323,6 +356,27 @@ $(window).ready(function(){
     });
   });
 });
+
+function applyVerification(msgIndex, verification) {
+  console.log('Applying verification to message index (of rx\'d messages) ' + msgIndex);
+  allMsgs[msgIndex].msgClass = getMessageTypeFormat(verification.type, 'Foreground');
+  let levelClass = getMessageTypeFormat(verification.type, 'Background')
+  allMsgs[msgIndex].levelClass = levelClass;
+  activeHtml[msgIndex] = getMarkup(allMsgs[msgIndex]);
+  let hierarchy = ['pass', 'warn', 'fail'];
+  for(let i = 0, len = allMsgs[msgIndex].parentIndices.length; i < len; i++) {
+    let parentIndex = allMsgs[msgIndex].parentIndices[i] - allMsgs[0].index;
+    if (allMsgs[msgIndex].parentIndices[i] === null || parentIndex === msgIndex) {
+      break;
+    }
+    let parentClass = allMsgs[parentIndex].levelClass;
+    if (hierarchy.indexOf(levelClass.substr(0, 4)) > hierarchy.indexOf(parentClass.substr(0, 4))) {
+      console.log('Updating bg color for parent with rx index ' + parentIndex);
+      allMsgs[parentIndex].levelClass = levelClass;
+      activeHtml[parentIndex] = getMarkup(allMsgs[parentIndex]);
+    }
+  }
+}
 
 function setParentFolded(allMsgsIndex) {
   allMsgs[allMsgsIndex].foldState = true;

@@ -6,7 +6,7 @@ function getMarkup(msgData) {
     levelChangeDisplay = getDisplay(userControls.tabs);
   let logLevelSpacers = ``;
   for (let i=0; i<=msgData.levelDisplay.logLevelSpacers; i++) {
-    logLevelSpacers += `<p class="logLevelSpacer ${msgData.levelClass}" style="display: ${getDisplay(userControls.tabs)};background: lightgray"></p>`
+    logLevelSpacers += `<p class="logLevelSpacer ${msgData.levelClass}" style="display: ${getDisplay(userControls.tabs)};background: darkgrey"></p>`
   }
   let tagElements = ``;
   msgData.tags.forEach(function (tag) {
@@ -25,9 +25,7 @@ function getMarkup(msgData) {
     <p class="levelStep ${msgData.levelClass}" title="Step" style="display: ${getDisplay(userControls.steps)}">${msgData.step}</p>
     <span class="triangle-right tr-${msgData.levelClass}" style="display: ${getDisplay(userControls.levels)}"></span>
     <pre id="msg${msgData.index}content" class=${msgData.msgClass}>${msgData.message}</pre>
-    <div class="rightSideContainer">
-      ${tagElements}
-    </div>
+    <div class="rightSideContainer">${tagElements}</div>
     <span>&zwnj;</span>
   </div>`;
 }
