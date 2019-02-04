@@ -96,7 +96,7 @@ function getSpacerWidth(level, step) {
  */
 function messageIsFolded(level, parentIndices) {
   if (level > minLevel) {
-    if (userControls.foldAll == "on") {
+    if (userControls.foldAll) {
       return true;
     }
     for (let i = 0, n = level - minLevel; i < n; i++) {
@@ -435,7 +435,10 @@ function applyVerification(msgIndex, msgType) {
     if (hierarchy.indexOf(levelClass.substr(0, 4)) > hierarchy.indexOf(parentClass.substr(0, 4))) {
       console.log('Updating bg color for parent with rx index ' + parentIndex);
       allMsgs[parentIndex].levelClass = levelClass;
-      activeHtml[parentIndex] = getMarkup(allMsgs[parentIndex]);
+      let activeIndex = activeMsgIndices.indexOf(allMsgs[parentIndex].index);
+      if(activeIndex !== -1) {
+        activeHtml[activeIndex] = getMarkup(allMsgs[parentIndex]);
+      }
     }
   }
 }
