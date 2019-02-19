@@ -191,7 +191,7 @@ class ReserveClientConn {
 
 class LdapClient {
   constructor(longName) {
-    this.ldapURLPart1 = 'ldap://GNET.global.vpn/CN=';
+    this.ldapURLPart1 = 'ldap://dcgnetnz2.GNET.global.vpn/CN=';
     this.ldapURLPart2 =
       ',OU=Application,OU=Special Accounts,OU=APAC,DC=GNET,DC=global,DC=vpn';
     // longName must be the LDAP long name
