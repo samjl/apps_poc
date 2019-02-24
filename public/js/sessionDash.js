@@ -4,6 +4,98 @@ let sessionDash = (function() {
     connected: false,
     vars: {},
     trackingTriggerBuild: undefined,
+    testIdDict: Object.create(null),
+    sessions: {},
+  };
+
+  sessionDash.allSessionsOutcomes = function() {
+    let nonZeroSummary = {
+      collected: 0,
+      complete: 0,
+      outcomes: {}
+    };
+    for (let session in this.sessions) {
+      nonZeroSummary.collected += this.sessions[session].collected;
+      nonZeroSummary.complete += this.sessions[session].complete;
+      for (let outcome in this.sessions[session].outcomes) {
+        if (this.sessions[session].outcomes[outcome] > 0) {
+          if (!nonZeroSummary.outcomes.hasOwnProperty(outcome)) {
+            nonZeroSummary.outcomes[outcome] = this.sessions[session].outcomes[outcome];
+          } else {
+            nonZeroSummary.outcomes[outcome] += this.sessions[session].outcomes[outcome];
+          }
+        }
+      }
+    }
+    sessionDash.updateSessionOutcome(nonZeroSummary, 'All Sessions', 'overallStatus');
+  };
+
+  sessionDash.updateSessionOutcome = function(summary, title, addToElementId) {
+    let outcomes = `
+      <p style="display: inline"> ${title}:</p>
+      <p style="display: inline;font-weight: bold">collected: ${summary.collected}</p>
+      <p style="display: inline;font-weight: bold">complete: ${summary.complete}</p>`;
+    for (let outcome in summary.outcomes) {
+      let percent = calc_percent(summary.outcomes[outcome], summary.collected);
+      outcomes += `
+        <p style="display: inline;font-weight: bold;color: ${outcomeColour(outcome)}">
+          ${outcome}: ${summary.outcomes[outcome]} (${percent})%
+        </p>`
+    }
+    $('#' + addToElementId).html(`${outcomes}`);
+  };
+
+  sessionDash.sessionOutcomes = function(sessionId) {
+    let nonZeroSummary = {
+      collected: this.sessions[sessionId].collected,
+      complete: this.sessions[sessionId].complete,
+      outcomes: {}
+    };
+    for (let outcome in this.sessions[sessionId].outcomes) {
+      if (this.sessions[sessionId].outcomes[outcome] > 0) {
+        if (!nonZeroSummary.outcomes.hasOwnProperty(outcome)) {
+          nonZeroSummary.outcomes[outcome] = this.sessions[sessionId].outcomes[outcome];
+        } else {
+          nonZeroSummary.outcomes[outcome] += this.sessions[sessionId].outcomes[outcome]
+        }
+      }
+    }
+    // TODO add test rig name to title
+    sessionDash.updateSessionOutcome(nonZeroSummary, 'Session ' + sessionId, 'outcomes' + sessionId);
+  };
+
+  sessionDash.addSession = function(sessionId, collected) {
+    this.sessions[sessionId] = {
+      collected: collected,
+      complete: 0,
+      // All possible outcomes
+      outcomes: {
+        "passed": 0, // Pass
+        "failed": 0, // Fail
+        "error": 0,  // TODO check this is a valid outcome from pytest-phases
+        "setup errored": 0, // Fail
+        "teardown errored": 0, // Fail
+        "skipped": 0, // Skip
+        "setup skipped": 0, // Skip
+        "teardown skipped": 0, // Skip
+        "warned": 0, // Warn
+        "setup warned": 0, // Warn
+        "teardown warned": 0, // Warn
+        "expected failure": 0,
+        "unexpectedly passed": 0,
+        "pytest-warning": 0,
+        "collection error": 0,
+        "Unknown result": 0,
+        "in-progress": 0,
+        "pending": 0,
+      },
+      history: [],
+      future: [],
+    };
+    $('#eachSessionStatus').append(`
+      <div id="outcomes${sessionId}"></div>
+      <div id=visualStatus${sessionId} class="container"></div>
+    `);
   };
 
   sessionDash.triggerTracking = function(data) {
@@ -24,6 +116,99 @@ let sessionDash = (function() {
       this.trackingTriggerBuild = data.testVersion.triggerJobNumber;
     }
   };
+
+  sessionDash.updateVisualTestHistory = function(data, parentSessionId,
+                                                 isHistory) {
+    let sessionIds = data.sessionIds;
+    for (let key in data.tests) {
+      for (let i=0, n=data.tests[key].length; i<n; i++) {
+        let testIndex = sessionDash.testIdDict[parentSessionId].indexOf(key) + 1;
+        if (testIndex > 0) {
+          let elementType = 'History';
+          let historyIndex = Math.abs(i - 10);
+          if (!isHistory) {
+            // Future sessions
+            elementType = 'Future';
+            historyIndex = i + 1;
+          }
+          let element = document.getElementById(parentSessionId + '_' + testIndex + '_' + elementType + historyIndex);
+          let color = "grey";
+          let title = sessionIds[i];
+          if (data.tests[key][i] !== null){
+            let outcome = data.tests[key][i].outcome;
+            color = outcomeColour(outcome);
+            title += ' ' + outcome;
+          } else {
+            title += ' not run';
+          }
+          element.style.backgroundColor = color;
+          element.title = title;
+        }
+      }
+    }
+  };
+
+  sessionDash.addTestToSessionStatus = function(sessionId, testData) {
+    console.log(sessionId);
+    if (testData.status === 'complete') {
+      console.log(sessionId);
+      console.log(this);
+      this.sessions[sessionId].complete++;
+    }
+    if (this.sessions[sessionId].outcomes.hasOwnProperty(testData.outcome)) {
+      console.log(this);
+      console.log(sessionId);
+      if (testData.status === 'complete') {
+        this.sessions[sessionId].outcomes[testData.outcome]++;
+      }
+
+      // avoid long element ids by giving each test function a unique index
+      // let sessionId = sessionId.toString();
+      let testId =  this.testIdDict[sessionId].push(testData.moduleName
+        + '::' + testData.className + '::' + testData.testName);
+      let uniqueId = sessionId + '_' + testId + '_';
+      let toolTip = sessionId + ' ' + testData.moduleName + '::' +
+        testData.className + '::' + testData.testName + ' ' + testData.outcome;
+      let testVisual = `
+      <div class="testOutcome" title="${toolTip}" style="background-color: ${outcomeColour(testData.outcome)};">
+        <div id=${uniqueId}History class=historyFuture>
+          <div id=${uniqueId}HistoryLine1 class="historyLine" style="display: flex;">
+            <div id=${uniqueId}History1 title="N/A" class="historyItem" style="border-left: 0px; border-top: 0px;"></div>
+            <div id=${uniqueId}History2 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History3 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History4 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History5 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+          </div>
+          <div id=test1HistoryLine2 class="historyLine" style="display: flex;">      
+            <div id=${uniqueId}History6 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History7 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History8 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History9 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+            <div id=${uniqueId}History10 title="N/A" class="historyItem" style="border-top: 0px; border-left: 0px"></div>
+          </div>
+        </div>
+        <div id=${uniqueId}Future class=historyFuture>
+          <div id=${uniqueId}FutureLine1 class="historyLine" style="display: flex; justify-content: flex-end">
+            <div id=${uniqueId}Future1 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future2 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future3 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future4 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future5 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+          </div>
+          <div id=${uniqueId}FutureLine2 class="historyLine" style="display: flex; justify-content: flex-end">
+            <div id=${uniqueId}Future6 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future7 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future8 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future9 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+            <div id=${uniqueId}Future10 title="N/A" class="historyItem" style="border-bottom: 0px; border-right: 0px"></div>
+          </div>
+        </div>
+      </div>
+      `;
+
+      $('#visualStatus' + sessionId).append(testVisual);
+    }
+  }
 
   return sessionDash;
 })();
@@ -72,10 +257,14 @@ $(window).ready(function() {
     console.log(data);
     sessionDash.triggerTracking(data);
 
+    sessionDash.testIdDict[data.sessionId] = [];
+    sessionDash.addSession(data.sessionId, data.collected.length);
+    sessionDash.sessionOutcomes(data.sessionId);
+    sessionDash.allSessionsOutcomes();
+
     $('#sessionRx').text(data.sessionId);
     $('#sessionCollected').text(data.collected.length);
     // $('#plan').text('Test plan: ' + data.plan);
-    $('#status').text(data.status);
     console.log('Received mongoDB insert session ' + data.sessionId +
       ' containing ' + data.collected.length + ' tests');
     $('#mainContainer').append(sessionTemplate(data));
@@ -89,18 +278,20 @@ $(window).ready(function() {
 
     $('#sessionRx').text(data.sessionId);
     $('#sessionCollected').text(data.collected.length);
-    // $('#plan').text('Test plan: ' + data.plan);
-    $('#status').text(data.status);
     console.log('Received mongoDB full session ' + data.sessionId + ' containing '
       + data.collected.length + ' tests');
     $('#mainContainer').append(sessionTemplate(data));
 
-    // Process (data.)runOrder
+    sessionDash.testIdDict[data.sessionId] = [];
+    sessionDash.addSession(data.sessionId, data.collected.length);
     Object.entries(data.runOrder).forEach(function(k) {
       let runOrderIndex = k[0];
       // TODO check if the ID already exists (required for server restarts?)
       appendToRunOrder(runOrderIndex, k[1], data.sessionId);
+      sessionDash.addTestToSessionStatus(data.sessionId, k[1]);
     });
+    sessionDash.sessionOutcomes(data.sessionId);
+    sessionDash.allSessionsOutcomes();
 
     // Progress (TODO if session is still in progress)
     if (data.hasOwnProperty('progress')) {
@@ -118,14 +309,12 @@ $(window).ready(function() {
       Object.entries(data.updatedFields).forEach(function(k) {
         if (k[0].indexOf('runOrder') === 0) {
           // attribute starts with runOrder
-          console.log(k);
-          console.log("Found - " + k[0]);
-
           let re = /runOrder\.?(\d*)\.?(\w*)/gm;
           let my = re.exec(k[0]);
           console.log(my);
           let runOrderIndex = my[1];
           let runOrderParam = my[2];
+          let testData;
 
           if (!runOrderIndex) {
             console.log('runOrder with no index detected - element 0');
@@ -133,12 +322,27 @@ $(window).ready(function() {
             $('#class' + data.sessionId).text(k[1][0].className);
             $('#test' + data.sessionId).text(k[1][0].testName);
             appendToRunOrder(0, k[1][0], data.sessionId);
+            testData = k[1][0];
+            sessionDash.addTestToSessionStatus(data.sessionId, testData);
+            if (sessionDash.sessions.hasOwnProperty(data.sessionId)) {
+              sessionDash.updateVisualTestHistory(sessionDash.sessions[data.sessionId].history, data.sessionId, true);
+              sessionDash.updateVisualTestHistory(sessionDash.sessions[data.sessionId].future, data.sessionId, false);
+            }
           } else if (runOrderParam) { // TODO param update to first test?
             console.log('runOrder ' + runOrderIndex + ' param update - ' +
               runOrderParam + ': ' + k[1]);
+            testData = {};
+            testData[runOrderParam] = k[1];
             if (runOrderParam === "status" && k[1] === "complete") {
               $('#outcome_' + data.sessionId + '_' + runOrderIndex)
                 .css('font-weight', 'bold');
+              sessionDash.sessions[data.sessionId].complete++;
+              let finalOutcome = $('#outcome_' + data.sessionId + '_' + runOrderIndex).text();
+              if (sessionDash.sessions[data.sessionId].outcomes.hasOwnProperty(finalOutcome)) {
+                sessionDash.sessions[data.sessionId].outcomes[finalOutcome]++;
+              }
+              sessionDash.sessionOutcomes(data.sessionId);
+              sessionDash.allSessionsOutcomes();
             } else {
               let testElement = $('#' + runOrderParam + "_" + data.sessionId +
                 '_' + runOrderIndex);
@@ -154,15 +358,23 @@ $(window).ready(function() {
                     'font-weight': fontWeight,
                     'color': fontColour
                 });
+                let a = $('#visualStatus' + data.sessionId).children();
+                a[runOrderIndex].style.backgroundColor = outcomeColour(testData.outcome);
               }
             }
           } else {
             console.log('runOrder full update/insert for index ' +
               runOrderIndex);
+            testData = k[1];
             $('#module' + data.sessionId).text(k[1].moduleName);
             $('#class' + data.sessionId).text(k[1].className);
             $('#test' + data.sessionId).text(k[1].testName);
             appendToRunOrder(runOrderIndex, k[1], data.sessionId);
+            sessionDash.addTestToSessionStatus(data.sessionId, testData);
+            if (sessionDash.sessions.hasOwnProperty(data.sessionId)) {
+              sessionDash.updateVisualTestHistory(sessionDash.sessions[data.sessionId].history, data.sessionId, true);
+              sessionDash.updateVisualTestHistory(sessionDash.sessions[data.sessionId].future, data.sessionId, false);
+            }
           }
         }
         if (k[0] === 'status') {
@@ -194,7 +406,18 @@ $(window).ready(function() {
       });
     }
   });
+
+  sessionDash.socket.on('history', (data) => {
+    sessionDash.sessions[data.parentSession].history = data.history;
+    sessionDash.sessions[data.parentSession].future = data.future;
+    sessionDash.updateVisualTestHistory(data.history, data.parentSession, true);
+    sessionDash.updateVisualTestHistory(data.future, data.parentSession, false);
+  });
 });
+
+function calc_percent(count, total) {
+  return Math.round((count / total) * 100);
+}
 
 function consoleScrollToEnd() {
   let completeElement = $('#complete');
@@ -240,7 +463,25 @@ function modifySessionIds() {
     current += "&sessionIds=" + ids.join(',');
   }
   window.history.pushState({}, '', current);
-  location.reload();
+  location.reload();  // TODO emit message to server rather than refresh here?
+}
+
+function incrementSessionId() {
+  // Increment just the first session ID in the list and refreshes
+  let current = window.location.href;
+  let vars = {};
+  current.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+    vars[key] = value;
+  });
+  if (vars.hasOwnProperty('sessionIds')) {
+    let parts = vars.sessionIds.split(',');
+    let current_id = parseInt(parts[0], 10);
+    current = current.split("?", 1)[0] + '?sessionIds=' + (current_id + 1);
+    window.history.pushState({}, '', current);
+    location.reload();
+  } else {
+    console.log("Debug error: no session ID in url");
+  }
 }
 
 function appendToRunOrder(index, data, sessionId) {

@@ -27,3 +27,50 @@ th {
 td {
   background: #949494;
 }
+
+.container {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 5px;
+}
+
+.testOutcome {
+  font-size: 0px;
+  border: none;
+  margin: 1px 0px 0px 1px;
+  padding: 0px;
+  width: 48px;
+  height: 48px;
+  background-color: green;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.historyFuture {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.historyLine {
+  display: flex;
+  flex-direction: row;
+}
+
+.historyItem {
+  background-color: grey;
+  width: 6px;
+  height: 6px;
+  border: 1px solid white;
+}
+
+.allSessionsStatus {
+  font-size: x-large;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.singleSessionStatus {
+  font-size: large;
+}

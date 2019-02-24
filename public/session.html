@@ -14,15 +14,16 @@
       <label for="sessionId" style="display: inline">Session IDs (comma separated)</label>
       <input id="sessionId" style="display: inline; margin: 4px" type="text"
              onchange="modifySessionIds()">
+      <input id="sessionInc" style="display: inline; margin: 4px" type="button"
+             onclick="incrementSessionId()" value="+">
     </div>
     <!--<p id="plan">Test plan: </p>-->
     <!--<p id="embeddedVersion">Embedded version: </p>-->
     <!--<p id="testVersion">Test version: </p>-->
-    <div>
-      <p style="display: inline">All Sessions Status: </p>
-      <p id="status" style="display: inline; font-weight: bold">None</p>
-      <p>Total Tests Collected</p>
-      <p id="testsOutcome">Test Status</p>
+    <div id="overallStatus" class="allSessionsStatus"></div>
+    <div id="eachSessionStatus" class="singleSessionStatus">
+    </div>
+    <div id="visualStatus">
     </div>
     <!-- max height for 3 full lines = 49px -->
     <div id="complete"

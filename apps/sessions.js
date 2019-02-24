@@ -112,7 +112,7 @@ class SessionDashClientConn {
     });
   }
 
-  getTrackSession(params) {
+  async getTrackSession(params) {
     // TODO if sessionId check if session exists - if it does don't set up
     // the change stream?
     // Create the change stream pipeline and the find match using the parameters
@@ -169,7 +169,14 @@ class SessionDashClientConn {
     // Track changes
     this.sessionsLive(pipeline);
     // Find existing
-    this.sessionsFindExisting(findMatch);
+    let existingSessions = await this.sessionsFindExisting(findMatch);
+    // Find history and future sessions wrt to existingSessions
+    // + jenkins trigger or jenkins job name
+    for(let i = 0, len = existingSessions.length; i < len; i++) {
+      this.jenkinsJobHistoryFuture(existingSessions[i].jenkinsJob,
+        existingSessions[i].sessionId)
+    }
+
   }
 
   sessionsLive(aggPipeline) {
@@ -181,6 +188,8 @@ class SessionDashClientConn {
       if (change.operationType === 'insert') {
         console.log('session ' + change.fullDocument.sessionId + ' insert (change stream)');
         this.socket.emit('session_insert', change.fullDocument);
+        this.jenkinsJobHistoryFuture(change.fullDocument.jenkinsJob,
+          change.fullDocument.sessionId)
       } else if (change.operationType === 'update'){
         console.log('session ' + change.fullDocument.sessionId + ' update (change stream)');
         // Add the session ID to then transmitted update.
@@ -192,21 +201,91 @@ class SessionDashClientConn {
     });
   }
 
-  sessionsFindExisting(findMatch) {
+  async sessionsFindExisting(findMatch) {
     console.log('Finding existing sessions');
-    const sessionPromise = this._db.collection('sessions').find(findMatch).toArray();
-    sessionPromise
-      .then((docs) => {
-        console.log('find returned ' + docs.length + ' session docs');
-        for(let i = 0, len = docs.length; i < len; i++) {
-          console.log('session ' + docs[i].sessionId + ' full (find)');
-          this.socket.emit('session_full', docs[i]);
+    let err, docs = await this._db.collection('sessions').find(findMatch).toArray();
+    if (err) {
+      console.log('Finding existing sessions failed with error:');
+      console.log(err);
+    } else if (docs.length === 0) {
+      console.log('Failed to find any existing sessions');
+    } else {
+      console.log('find returned ' + docs.length + ' session docs');
+      let sessionIds = [];
+      for(let i = 0, len = docs.length; i < len; i++) {
+        this.socket.emit('session_full', docs[i]);
+        sessionIds.push({
+          sessionId: docs[i].sessionId,
+          jenkinsJob: docs[i].testVersion.jenkinsJobName
+        })
+      }
+      return sessionIds;
+    }
+  }
+
+  async jenkinsJobHistoryFuture(jobName, sessionId) {
+    let all = {jobName: jobName};
+    all.history = await this.jenkinsJobFind(jobName, sessionId, "$lt", -1);
+    all.future = await this.jenkinsJobFind(jobName, sessionId, "$gt", 1);
+    console.log('Session ID ' + sessionId + ' found ' + all.history.length +
+      ' history sessions and ' + all.future.length + ' future sessions');
+    let foo = {
+      jobName: jobName,
+      parentSession: sessionId,
+    };
+    foo.history = this.testHistory(all.history);
+    foo.future = this.testHistory(all.future);
+    this.socket.emit('history', foo);
+  }
+  
+  testHistory(docs) {
+    let testOrdered = {
+      sessionIds: [],
+      tests: {},
+    };
+    for (let i=0, n=docs.length; i<n; i++) {
+      // Add the session ID
+      testOrdered.sessionIds.push(docs[i].sessionId);
+      for (let j=0, n=docs[i].runOrder.length; j<n; j++) {
+        let attrName = docs[i].runOrder[j].moduleName + '::' +
+          docs[i].runOrder[j].className + '::' +
+          docs[i].runOrder[j].testName;
+        if (!testOrdered.tests.hasOwnProperty(attrName)) {
+          testOrdered.tests[attrName] = new Array(docs.length);
         }
-      })
-      .catch((err) => {
-        console.log('Error');
-        console.log(err);
-      });
+        testOrdered.tests[attrName][i] = {
+          'outcome': docs[i].runOrder[j].outcome,
+          'status': docs[i].runOrder[j].status,
+          // + duration if required
+        };
+      }
+    }
+    return testOrdered;
+  }
+  
+  async jenkinsJobFind(jobName, sessionId, sessionCondition, sessionSortOrder) {
+    let findMatch = {
+      sessionId: {},
+      "testVersion.jenkinsJobName": jobName
+    };
+    findMatch.sessionId[sessionCondition] = sessionId;
+    let options = {
+      sort: {sessionId: sessionSortOrder},
+      limit: 10,
+      projection: {runOrder: 1, sessionId: 1, status: 1},
+    };
+    let err, docs = await this._db.collection('sessions').find(findMatch, options).toArray();
+    if (err) {
+      console.log('Finding existing sessions failed with error:');
+      console.log(err);
+
+    } else if (docs.length === 0) {
+      console.log('Failed to find any existing sessions (' + sessionCondition +
+        ' ' + sessionId + ', ' + jobName + ')');
+    } else {
+      return docs;
+    }
+    return [];
   }
 
   async sessionsLatestTriggerBuild(jobName) {
