@@ -90,7 +90,7 @@ class TestLogClientConn {
         // console.log('Messages received: ' + this.streamMsgsRxd +
         //             ', messages transmitted: ' + this.msgsTxd);
         if (this.msgsTxd > 0 && this.streamMsgsRxd === this.msgsTxd) {
-          console.log('Clearing array');
+          // console.log('Clearing array');
           this.msgsTxd = 0;
           this.streamMsgsRxd = 0;
           this.collatedLogs = [];
@@ -125,7 +125,6 @@ class TestLogClientConn {
       {fullDocument: 'updateLookup'});
     changeStream.on('change', (change) => {
       if (change.operationType === 'insert') {
-        console.log("TESTRESULT INSERT");
         let data = {};
         data._id = change.fullDocument._id;
         data.className = change.fullDocument.className;
@@ -135,16 +134,11 @@ class TestLogClientConn {
         this.socket.emit('test outcome', [data])
       } else if (change.operationType === 'update') {
         // testresult updated
-        console.log("TESTRESULT UPDATE");
-        // console.log(change);
-        // console.log(change.updateDescription.updatedFields);
         let keys = Object.keys(change.updateDescription.updatedFields);
         for(let i = 0, len = keys.length; i < len; i++) {
-          // console.log(keys[i]);
           // Get the outcome phase/overall being updated
           let re = /outcome\.?(\w*)/gm;
           let my = re.exec(keys[i]);
-          // console.log(my);
           if (my){
             let outcomeField = my[1];
             // console.log("outcome." + my[1] + ": " + change.updateDescription.updatedFields[keys[i]]);
