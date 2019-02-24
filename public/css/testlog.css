@@ -1,3 +1,30 @@
+/*size medium*/
+/*:root {*/
+  /*--h1-p-font-size: medium;*/
+  /*--pre-font-size: medium;*/
+  /*--main-height: 22px;*/
+  /*--index-font-size: small;*/
+  /*--index-width: 40px;*/
+  /*--margin-right: 2px;*/
+  /*--secondary-size: 22px;*/
+  /*--triangle-right-top: 11px;*/
+  /*--triangle-right-left: 12px;*/
+  /*--triangle-right-bottom: 11px;*/
+/*}*/
+/*size x-small*/
+:root {
+  --h1-p-font-size: x-small;
+  --pre-font-size: small;
+  --main-height: 16px;
+  --index-font-size: x-small;
+  --index-width: 30px;
+  --margin-right: 1px;
+  --secondary-size: 8px;
+  --triangle-right-top: 8px;
+  --triangle-right-left: 6px;
+  --triangle-right-bottom: 8px;
+}
+
 html, body {
   height: 100%;
   margin: 0;
@@ -6,7 +33,7 @@ html, body {
 h1, p {
   margin: 0;
   font-family: "Courier New", Courier, monospace;
-  font-size: medium;
+  font-size: var(--h1-p-font-size);
 }
 
 pre {
@@ -15,7 +42,7 @@ pre {
   padding: 0;
   border: none;
   font-family: "Courier New", Courier, monospace;
-  font-size: medium;
+  font-size: var(--pre-font-size);
 }
 
 #container {
@@ -76,8 +103,8 @@ th, td
   overflow-y: scroll;
 }
 
-.containerMessage, .containerNoFold, .containerFold, .timestamp, .logLevel, .levelStep, .source { /* .index, */
-  height: 22px;
+.containerMessage, .containerNoFold, .containerFold, .timestamp, .logLevel, .logLevelSpacer, .levelStep, .source { /* .index, */
+  height: var(--main-height);
   cursor: default;
   display: flex;
   flex-flow: row no-wrap;
@@ -93,44 +120,36 @@ th, td
 }
 
 .index {
-  height: 21px;
+  height: calc(var(--main-height) - 1px);
   border-bottom: 1px solid black;
-  cursor: default;
-  display: flex;
-  flex-flow: row no-wrap;
-  justify-content: center;
   align-content: center;
   align-items: center;
+  flex: 0 0 var(--index-width);
+  margin-right: var(--margin-right);
+  background:black;
+  justify-content:center;
+  color:white;
+  font-size: var(--index-font-size);
+  cursor: default;
+  padding-left: 2px;
+  padding-right: 2px;
 }
 
 .spacer {
-  height: 22px;
+  height: var(--main-height);
   width: 0;
   padding: 0;
   margin: 0;
 }
 
 .containerMessage {
-  height: 22px;
   width: 100%;
   justify-content: flex-start;
 }
 
-.index {
-  flex: 0 0 40px;
-  margin-right: 2px;
-  background:black;
-  justify-content:center;
-  color:white;
-  font-size: small;
-  cursor: default;
-  padding-left: 2px;
-  padding-right: 2px;
-}
-
 .timestamp {
   flex: 0 0 130px;
-  margin-right: 2px;
+  margin-right: var(--margin-right);
   background: #303030;
   color: white;
 }
@@ -138,14 +157,14 @@ th, td
 .triangle-topright {
   width: 0;
   height: 0;
-  margin-right: 2px;
-  border-top: 22px solid #505050;
-  border-left: 22px solid transparent;
+  margin-right: var(--margin-right);
+  border-top: var(--main-height) solid #505050;
+  border-left: var(--secondary-size) solid transparent;
 }
 
 .containerNoFold, .containerFold {
-  flex: 0 0 22px;
-  margin-right: 2px;
+  flex: 0 0 var(--secondary-size);
+  margin-right: var(--margin-right);
   background: #505050;
   color: #F8F8F8;
   -webkit-transition: background 0.5s, color 0.5s; /* Safari */
@@ -158,18 +177,25 @@ th, td
   cursor: pointer;
 }
 
-.logLevel {
-  flex: 0 0 22px;
-  margin-right: 0px;
+.logLevel, .logLevelSpacer {
+  flex: 0 0 var(--secondary-size);
   background: grey;
   color: white;
 }
 
+.logLevel, .logLevelSpacer {
+  margin-right: 0px;
+}
+
+.logLevelSpacer {
+  margin-right: var(--margin-right);
+}
+
 .levelStep {
-  flex: 0 0 22px;
+  flex: 0 0 var(--main-height);
   margin-right: 0px;
   background: grey;
-  font-size: small;
+  font-size: var(--index-font-size);
 }
 
 .failBackground {
@@ -188,21 +214,21 @@ th, td
   width: 0;
   height: 0;
   margin-right: 2px;
-  border-top: 11px solid transparent;
-  border-left: 12px solid grey;
-  border-bottom: 11px solid transparent;
+  border-top: var(--triangle-right-top) solid transparent;
+  border-left: var(--triangle-right-left) solid grey;
+  border-bottom: var(--triangle-right-bottom) solid transparent;
 }
 /* Special cases for the triangle arrow colouring */
 .tr-failBackground {
-  border-left: 12px solid red;
+  border-left: var(--triangle-right-left) solid red;
 }
 
 .tr-warnBackground {
-  border-left: 12px solid orange;
+  border-left: var(--triangle-right-left) solid orange;
 }
 
 .tr-passBackground {
-  border-left: 12px solid green;
+  border-left: var(--triangle-right-left) solid green;
 }
 
 .None, .Fail, .Warn, .Pass  {
@@ -223,14 +249,21 @@ th, td
   color: green;
 }
 
-.source {
+.rightSideContainer {
+  display: flex;
+  flex-grow: 1;
+  flex-flow: row-reverse no-wrap;
+  justify-content: flex-end;
+}
+
+.tags {
   width:auto;
   font-size: small;
   color: white;
+  background-color: black;
   white-space: nowrap;
-  flex-flow: row-reverse no-wrap;
-  flex-grow: 1;
-  justify-content: flex-end;
+  padding: 1px;
+  margin-left: 2px;
 }
 
 /* Tabbed interface */

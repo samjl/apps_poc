@@ -5,6 +5,7 @@ class TestLogClientConn {
     this.socket = socket;
     // attributes required for timed test log transmission and tracking
     this.collatedLogs = [];
+    this.collatedUpdates = [];
     this.streamMsgsRxd = 0;
     this.msgsTxd = 0;
     this.lastIndexTxd = 0;  // The message index of the last message
@@ -94,9 +95,12 @@ class TestLogClientConn {
           this.msgsTxd = 0;
           this.streamMsgsRxd = 0;
           this.collatedLogs = [];
+          this.collatedUpdates = [];
         }
         this.collatedLogs.push(change.fullDocument);
         this.streamMsgsRxd += 1;
+      } else if (change.operationType === 'update') {
+        this.collatedUpdates.push(change.fullDocument);
       }
     });
   }
@@ -192,12 +196,14 @@ class TestLogClientConn {
   intervalFunc(parent) {
     // console.log('Timer fired');
     let txData = parent.collatedLogs;
+    let txUpdates = parent.collatedUpdates;
     if (txData.length > 0) {
       if (txData[txData.length - 1].index !== parent.lastIndexTxd) {
         parent.msgsTxd += txData.length;
         // console.log('Emitting ' + txData.length + ' logs, total transmitted ' +
         //   parent.msgsTxd);
         parent.socket.emit('saved messages', txData);
+        parent.socket.emit('updated messages', txUpdates);
         parent.lastIndexTxd = txData[txData.length - 1].index;
       }
     }
