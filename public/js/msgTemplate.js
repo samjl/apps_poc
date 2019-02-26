@@ -9,9 +9,13 @@ function getMarkup(msgData) {
     logLevelSpacers += `<p class="logLevelSpacer ${msgData.levelClass}" style="display: ${getDisplay(userControls.tabs)};background: darkgrey"></p>`
   }
   let tagElements = ``;
-  msgData.tags.forEach(function (tag) {
-    tagElements += `<pre class="tags">${tag}</pre>`
-  });
+  console.log(msgData);
+  // if (msgData.hasOwnProperty('tags')) {
+  if (msgData.tags !== undefined) {
+    msgData.tags.forEach(function (tag) {
+      tagElements += `<pre class="tags">${tag}</pre>`
+    });
+  }
   return `
   <div id="msg${msgData.index}" class="containerMessage" style="background: #DDDDDD" index="${msgData.index}">
     <p class="debug" title="developer info" style="display: ${getDisplay(userControls.dev)}">${msgData._id} [${msgData.parents}] [${msgData.parentIndices}] : ${msgData.numOfChildren}</p>
