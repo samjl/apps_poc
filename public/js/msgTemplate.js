@@ -10,7 +10,6 @@ function getMarkup(msgData) {
   }
   let tagElements = ``;
   console.log(msgData);
-  // if (msgData.hasOwnProperty('tags')) {
   if (msgData.tags !== undefined) {
     msgData.tags.forEach(function (tag) {
       tagElements += `<pre class="tags">${tag}</pre>`
