@@ -358,7 +358,7 @@ $(window).ready(function(){
         let msgIndex = msg.index - allMsgs[0].index;
         // If the message has a type (result of verify function or other
         // exception) then update the message's parent messages (color code).
-        if (msg.type !== null) {
+        if (msg.type !== undefined) {
           applyVerification(msgIndex, msg.type);
         }
       });
