@@ -18,7 +18,7 @@ class TestLogClientConn {
     this.id = new Date().getMilliseconds();
     let parent = this;
 
-    this.socket.on('init', (data) => {
+    this.socket.on('init', async (data) => {
       // getTestLogs(_db, this.socket, data.params.session, data.params.module);
       this.sessionId = parseInt(data.params.session);
       this.moduleName = data.params.module;
@@ -47,20 +47,25 @@ class TestLogClientConn {
         '_id': 0,
         'status': 1
       };
-      const statusPromise = this._db.collection('modules').findOne(this.findMatch,
-        this.projection);
-      statusPromise
-        .then((doc) => {
-          if (!doc || (doc.hasOwnProperty('status') && doc.status !== 'complete')) {
-            this.testLogsLive(this.pipeline);
-            this.timer = setInterval(this.intervalFunc, 500, this);
-            this.testsOutcomeLive(this.pipeline);
-            this.sessionProgressLive()
-          }
-          this.testLogsExisting(this.findMatch);
+      let err, doc = await this._db.collection('modules').findOne(
+        this.findMatch, this.projection);
+      if (err) {
+        console.log('Finding module status failed with error:');
+        console.log(err);
+      } else {
+        if (!doc || (doc.hasOwnProperty('status') && doc.status !== 'complete')) {
+          this.testLogsLive(this.pipeline);
+          this.timer = setInterval(this.intervalFunc, 500, this);
+          this.testsOutcomeLive(this.pipeline);
+          this.sessionProgressLive()
+        }
+        let logLinks = await this.testLogsLinks(this.findMatch);
+        if (logLinks !== undefined) {
+          await this.testLogsExisting(logLinks);
           this.testsOutcomeExisting(this.findMatch);
           // TODO if status id complete null the class after emitting logs
-        });
+        }
+      }
     });
 
     this.socket.on('init verifications', () => {
@@ -209,36 +214,36 @@ class TestLogClientConn {
     }
   }
 
-  testLogsExisting(match) {
-    // FIXME shuold match be attr?
-    const linksPromise = this._db.collection('loglinks').find(match).toArray();
-    linksPromise
-      // TODO could now do this directly on testresults - perf?
-      .then((links) => {
-        console.log('Found ' + links.length + ' loglink docs');
-        let allLogLinks = [];
-        for (let i = 0, len = links.length; i < len; i++) {
-          console.log('Test: ' + links[i].testName + ' - Number of log links:' +
-            ' ' + links[i].logIds.length);
-          Array.prototype.push.apply(allLogLinks, links[i].logIds);
-        }
-        console.log('Total logs for module: ' + allLogLinks.length);
-        let logsMatch = {'_id': {'$in': allLogLinks}};
-        // Now retrieve the logs from the list of _id's
-        return this._db.collection('testlogs').find(logsMatch).toArray();
-      })
-      .then((logs) => {
-        console.log('Number of log message docs retrieved: ' + logs.length);
-        while (logs.length > 0) {
-          // Currently 500 message chunks gives the best client side performance
-          this.socket.emit('saved messages', logs.splice(0, 500));
-        }
-        console.log('Done - all test logs emitted');
-      })
-      .catch((err) => {
-        console.log('Error');
-        console.log(err);
-      });
+  async testLogsLinks(match) {
+    let err, docs = await this._db.collection('loglinks').find(match).toArray();
+    if (err) {
+      console.log('Finding existing test log links failed with error:');
+      console.log(err);
+    } else if (docs.length === 0) {
+      console.log('Failed to find any existing test log links');
+    } else {
+      console.log('find returned ' + docs.length + ' test log links docs');
+      return docs[0].logIds
+    }
+  }
+
+  async testLogsExisting(logLinks) {
+    let logsMatch = {'_id': {'$in': logLinks}};
+    // Now retrieve the logs from the list of _id's
+    let err, docs = await this._db.collection('testlogs').find(logsMatch).toArray();
+    if (err) {
+      console.log('Finding existing test logs failed with error:');
+      console.log(err);
+    } else if (docs.length === 0) {
+      console.log('Failed to find any existing test logs');
+    } else {
+      console.log('Number of log message docs retrieved: ' + docs.length);
+      while (docs.length > 0) {
+        // Currently 500 message chunks gives the best client side performance
+        this.socket.emit('saved messages', docs.splice(0, 500));
+      }
+      console.log('Done - all test logs emitted');
+    }
   }
 
   verificationsExisting(match) {
