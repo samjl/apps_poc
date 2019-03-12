@@ -273,8 +273,9 @@ $(window).ready(function(){
     // Update the parent message
     console.log("clicked message: " + clickedMsgIndex);
     let allMsgsPosition = clickedMsgIndex-allMsgs[0].index;
-    console.log("allMsgs array position: " + allMsgsPosition);
-    console.log("current child fold state is " + allMsgs[allMsgsPosition].foldState);
+    console.log('Message level: ' + allMsgs[allMsgsPosition].level);
+    // console.log("allMsgs array position: " + allMsgsPosition);
+    // console.log("current child fold state is " + allMsgs[allMsgsPosition].foldState);
     console.log("number of children to process: " + allMsgs[allMsgsPosition].numOfChildren);
     let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex);
     if (allMsgs[allMsgsPosition].foldState) {
@@ -282,35 +283,61 @@ $(window).ready(function(){
       setParentUnfolded(allMsgsPosition);
       activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
 
-      console.log("unfold children");
+      // console.log("unfold children");
       let insertActiveIndex = activeIndex + 1;
-      for (let i=allMsgsPosition+1, n=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i<=n; i++) {
-        if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
-          // Child is not already inserted
-          if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
-            // Child is a parent and is folded so add it and skip its children
-            activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
-            activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
-            i += allMsgs[i].numOfChildren;
-          } else {  // check the message
-            activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
-            activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
-          }
+
+      if (allMsgs[allMsgsPosition].level === maxLevel - 1) {
+        // If clicked message level is MAX-1 do it this way:
+        let toBeInsertedHtml = [];
+        let indices = [];
+        for (let i=0; i<allMsgs[allMsgsPosition].numOfChildren; i++) {
+          toBeInsertedHtml[i] = getMarkup(allMsgs[allMsgsPosition+i+1]);
+          indices[i] = allMsgs[allMsgsPosition+i+1].index
         }
-        insertActiveIndex++;
+        activeHtml.splice(insertActiveIndex, 0, ...toBeInsertedHtml);
+        activeMsgIndices.splice(insertActiveIndex, 0, ...indices);
+      } else {
+      // else for any other level (excludes MAX level as there are no higher
+      // levels to fold)
+        for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
+          if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
+            // Child is not already inserted
+            if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
+              // Child is a parent and is folded so add it and skip its children
+              activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
+              activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
+              i += allMsgs[i].numOfChildren;
+            } else {  // check the message
+              activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
+              activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
+            }
+          }
+          insertActiveIndex++;
+        }
       }
     } else {
       console.log("update clicked element (parent) to fold, active index: " + activeIndex);
       setParentFolded(allMsgsPosition);
       activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
-
-      console.log("fold children");
-      for (let i=activeIndex+1, n=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i<=n; i++) {
-        if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[allMsgsPosition].numOfChildren) {
-          activeHtml.splice(activeIndex+1, 1);  // remove index for each subsequent child
-          activeMsgIndices.splice(activeIndex+1, 1);
-        } else {
-          break;
+      if (allMsgs[allMsgsPosition].level === maxLevel - 1) {
+        // If clicked message level is MAX-1 we can safely fold all children
+        // (as none have their own children)
+        let numChildren = allMsgs[allMsgsPosition].numOfChildren;
+        console.log(numChildren);
+        console.log(typeof numChildren);
+        // remove index for each subsequent child
+        activeHtml.splice(activeIndex+1, numChildren);
+        activeMsgIndices.splice(activeIndex+1, numChildren);
+      } else {
+        // for any other level process each child in turn
+        for (let i=activeIndex+1; i<=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i++) {
+          if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[allMsgsPosition].numOfChildren) {
+            // remove index for each subsequent child
+            activeHtml.splice(activeIndex+1, 1);
+            activeMsgIndices.splice(activeIndex+1, 1);
+          } else {
+            break;
+          }
         }
       }
     }
@@ -358,10 +385,10 @@ $(window).ready(function(){
         let msgIndex = msg.index - allMsgs[0].index;
         // If the message has a type (result of verify function or other
         // exception) then update the message's parent messages (color code).
-        if (msg.type !== undefined) {
+        if (msg.type !== undefined && msg.type !== null) {
           applyVerification(msgIndex, msg.type);
         }
-      };
+      }
       // Safe to retrieve existing verifications now (do this once)
       if (!txd_verify_init) {
         console.log('Sending init verifications');
@@ -422,8 +449,8 @@ $(window).ready(function(){
  * for regular log messages that are not linked to a verification document).
  */
 function applyVerification(msgIndex, msgType) {
-  console.log('Applying verification type ' + msgType +
-    ' to message index (of rx\'d messages) ' + msgIndex);
+  // console.log('Applying verification type ' + msgType +
+  //   ' to message index (of rx\'d messages) ' + msgIndex);
   let levelClass = getMessageTypeFormat(msgType, 'Background');
   let hierarchy = ['pass', 'warn', 'fail'];
   for(let i = 0, len = allMsgs[msgIndex].parentIndices.length; i < len; i++) {
@@ -433,12 +460,9 @@ function applyVerification(msgIndex, msgType) {
     }
     let parentClass = allMsgs[parentIndex].levelClass;
     if (hierarchy.indexOf(levelClass.substr(0, 4)) > hierarchy.indexOf(parentClass.substr(0, 4))) {
-      console.log('Updating bg color for parent with rx index ' + parentIndex);
+      // console.log('Updating bg color for parent with rx index ' + parentIndex);
       allMsgs[parentIndex].levelClass = levelClass;
-      let activeIndex = activeMsgIndices.indexOf(allMsgs[parentIndex].index);
-      if(activeIndex !== -1) {
-        activeHtml[activeIndex] = getMarkup(allMsgs[parentIndex]);
-      }
+      activeHtml[parentIndex] = getMarkup(allMsgs[parentIndex]);
     }
   }
 }
