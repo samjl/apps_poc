@@ -222,8 +222,13 @@ class TestLogClientConn {
     } else if (docs.length === 0) {
       console.log('Failed to find any existing test log links');
     } else {
-      console.log('find returned ' + docs.length + ' test log links docs');
-      return docs[0].logIds
+      let allLogIds = [];
+      for (let i=0; i<docs.length; i++) {
+        allLogIds.push(...docs[i].logIds)
+      }
+      console.log('find returned ' + docs.length + ' test log links docs,' +
+        ' containing links to ' + allLogIds.length + ' log message docs');
+      return allLogIds;
     }
   }
 
@@ -272,7 +277,7 @@ class TestLogClientConn {
     const testsResultsPromise = this._db.collection('testresults').find(match, options).toArray();
     testsResultsPromise
       .then((docs) => {
-        console.log(docs);
+        console.log('Retrieved ' + docs.length + ' test result docs');
         this.socket.emit('test outcome', docs)
       })
       .catch((err) => {
