@@ -7,8 +7,32 @@ let txd_verify_init = false; // Message sent to server to initialise test
 // verification document search and tracking
 let previousClass;
 let previousTest;
-const minLevel = 0;
-const maxLevel = 9;
+// FIXME Requires compatibility with older logs pytest-phases < v0.13.0.
+//  Probably should be 1-5 default and pass in min and max going forward.
+const minLevel = 0;  // 1 for pytest-phases < v0.13.0
+const maxLevel = 9;  // 5 for pytest-phases < v0.13.0
+
+// Variables used to keep track of parent messages (those with child
+// messages with higher log levels proceeding them).
+class MsgNode {
+  constructor(index, level) {
+    this.index = index;
+    this.level = level;
+    this.firstChild = null;
+    this.nextSibling = null;
+    // Note that all siblings do not have to share the same log level but
+    // they need to all have the same closest parent ancestor.
+  }
+}
+let rootNode;  // The complete parent node tree
+let currentNode;  // Reference to the current parent in the tree (within
+// the rootNode tree).
+let parentNodes = new Array(maxLevel - minLevel + 1);  // A list of
+// message indices of the parent ancestors of the current node. The index
+// is related to the parents log level. Note that this list can skip levels
+// i.e. a level 4 log message could have two parents; one at level 0 and the
+// second at level 3.
+
 
 /**
  * Parse the date and time received in the message as Date object and
@@ -273,73 +297,122 @@ $(window).ready(function(){
     // Update the parent message
     console.log("clicked message: " + clickedMsgIndex);
     let allMsgsPosition = clickedMsgIndex-allMsgs[0].index;
-    console.log('Message level: ' + allMsgs[allMsgsPosition].level);
-    // console.log("allMsgs array position: " + allMsgsPosition);
-    // console.log("current child fold state is " + allMsgs[allMsgsPosition].foldState);
+    console.log("allMsgs array position: " + allMsgsPosition);
     console.log("number of children to process: " + allMsgs[allMsgsPosition].numOfChildren);
     let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex);
+
+    // Traverse to the node of the clicked element
+    console.log('Parents of clicked element:' + allMsgs[allMsgsPosition].parentIndices);
+    console.log('Clicked element log level = ' + allMsgs[allMsgsPosition].level);
+    let direct = allMsgs[allMsgsPosition].level - minLevel;
+    console.log('Direct parent is at index ' + direct);
+    let parentIndices = allMsgs[allMsgsPosition].parentIndices.slice(0, direct);
+    console.log('Parent indices that define path to clicked node: ' + parentIndices);
+    let clickedNode = iterateToNode(allMsgs[allMsgsPosition].index, parentIndices);
+    // Find all the children (that are themselves parents)
+    let children = new Array();
+    findChildren(clickedNode, children);
+    console.log('Found ' + children.length + ' children that are' +
+      ' themselves parents');
+    console.log(children);
+    // Iterate through the children
+    let startBlockIndex = allMsgs[allMsgsPosition].index + 1;
+
+
+    // TODO Quick check for if all children are folded/unfolded
     if (allMsgs[allMsgsPosition].foldState) {
-      console.log("update clicked element (parent) to unfold, active index:" + " " + activeIndex);
+      let toInsertIndices = new Array();
+      let toInsertHtml = new Array();
+      let lengthOfBlock;
+      // Set the state of the clicked element to unfolded '+'
       setParentUnfolded(allMsgsPosition);
       activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
 
-      // console.log("unfold children");
-      let insertActiveIndex = activeIndex + 1;
-
-      if (allMsgs[allMsgsPosition].level === maxLevel - 1) {
-        // If clicked message level is MAX-1 do it this way:
-        let toBeInsertedHtml = [];
-        let indices = [];
-        for (let i=0; i<allMsgs[allMsgsPosition].numOfChildren; i++) {
-          toBeInsertedHtml[i] = getMarkup(allMsgs[allMsgsPosition+i+1]);
-          indices[i] = allMsgs[allMsgsPosition+i+1].index
+      if (children.length === 0) {
+        // Clicked element has no children that are themselves parents
+        // console.log('children length is 0');
+        lengthOfBlock = allMsgs[allMsgsPosition].numOfChildren;
+        for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
+          toInsertIndices.push(x);
+          toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
         }
-        activeHtml.splice(insertActiveIndex, 0, ...toBeInsertedHtml);
-        activeMsgIndices.splice(insertActiveIndex, 0, ...indices);
       } else {
-      // else for any other level (excludes MAX level as there are no higher
-      // levels to fold)
-        for (let i=allMsgsPosition+1; i<=allMsgsPosition+allMsgs[allMsgsPosition].numOfChildren; i++) {
-          if (activeMsgIndices.indexOf(allMsgs[i].index) === -1) {
-            // Child is not already inserted
-            if (allMsgs[i].foldState  && allMsgs[i].numOfChildren > 0) {
-              // Child is a parent and is folded so add it and skip its children
-              activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
-              activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
-              i += allMsgs[i].numOfChildren;
-            } else {  // check the message
-              activeHtml.splice(insertActiveIndex, 0, getMarkup(allMsgs[i]));
-              activeMsgIndices.splice(insertActiveIndex, 0, allMsgs[i].index);
+        for (let i=0; i<children.length; i++) {
+          lengthOfBlock = children[i].index - startBlockIndex + 1;
+          // console.log('Unfold block from ' + startBlockIndex + ' of length '
+          //   + lengthOfBlock);
+          for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
+            toInsertIndices.push(x);
+            toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
+          }
+
+          // child block if from its index+1 to next child index (inclusive)
+          let childMsgIndex= children[i].index - allMsgs[0].index;
+          let childFoldState = allMsgs[childMsgIndex].foldState;
+          // console.log('Child (index ' + children[i].index + ') fold state is ' +
+          //   childFoldState);
+
+          if (i < children.length - 1 && children[i + 1].level > children[i].level) {
+            lengthOfBlock = children[i + 1].index - children[i].index;
+          } else {
+            lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
+          }
+          // console.log('Child (index ' + children[i].index + ') block from ' +
+          //   (children[i].index + 1) + ' of length ' + lengthOfBlock);
+          startBlockIndex = children[i].index + 1;
+          if (!childFoldState) {
+            for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
+              toInsertIndices.push(x);
+              toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
             }
           }
-          insertActiveIndex++;
+          startBlockIndex = children[i].index + lengthOfBlock + 1;
         }
       }
+      // console.log('Insert messages with indices ' + toInsertIndices);
+      activeHtml.splice(activeIndex+1, 0, ...toInsertHtml);
+      activeMsgIndices.splice(activeIndex+1, 0, ...toInsertIndices);
     } else {
-      console.log("update clicked element (parent) to fold, active index: " + activeIndex);
+      let toRemoveCounter = 0;
+      let lengthOfBlock;
+      // Set the state of the clicked element to unfolded '+'
       setParentFolded(allMsgsPosition);
       activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
-      if (allMsgs[allMsgsPosition].level === maxLevel - 1) {
-        // If clicked message level is MAX-1 we can safely fold all children
-        // (as none have their own children)
-        let numChildren = allMsgs[allMsgsPosition].numOfChildren;
-        console.log(numChildren);
-        console.log(typeof numChildren);
-        // remove index for each subsequent child
-        activeHtml.splice(activeIndex+1, numChildren);
-        activeMsgIndices.splice(activeIndex+1, numChildren);
+
+      if (children.length === 0) {
+        // Clicked element has no children that are themselves parents
+        // console.log('children length is 0 - fold all');
+        toRemoveCounter = allMsgs[allMsgsPosition].numOfChildren
       } else {
-        // for any other level process each child in turn
-        for (let i=activeIndex+1; i<=activeIndex+allMsgs[allMsgsPosition].numOfChildren; i++) {
-          if (activeMsgIndices[activeIndex+1] <= activeMsgIndices[activeIndex]+allMsgs[allMsgsPosition].numOfChildren) {
-            // remove index for each subsequent child
-            activeHtml.splice(activeIndex+1, 1);
-            activeMsgIndices.splice(activeIndex+1, 1);
+        for (let i=0; i<children.length; i++) {
+          lengthOfBlock = children[i].index - startBlockIndex + 1;
+          // console.log('Fold block from ' + startBlockIndex + ' of length '
+          //   + lengthOfBlock);
+          toRemoveCounter += lengthOfBlock
+
+          // child block if from its index+1 to next child index (inclusive)
+          let childMsgIndex= children[i].index - allMsgs[0].index;
+          let childFoldState = allMsgs[childMsgIndex].foldState;
+          // console.log('Child (index ' + children[i].index + ') fold state is ' +
+          //   childFoldState);
+
+          if (i < children.length - 1 && children[i + 1].level > children[i].level) {
+            lengthOfBlock = children[i + 1].index - children[i].index;
           } else {
-            break;
+            lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
           }
+          // console.log('Child (index ' + children[i].index + ') block from ' +
+          //   (children[i].index + 1) + ' of length ' + lengthOfBlock);
+          startBlockIndex = children[i].index + 1;
+          if (!childFoldState) {
+            toRemoveCounter += lengthOfBlock
+          }
+          startBlockIndex = children[i].index + lengthOfBlock + 1;
         }
       }
+      // console.log('Remove the next ' + toRemoveCounter + ' messages')
+      activeHtml.splice(activeIndex+1, toRemoveCounter);
+      activeMsgIndices.splice(activeIndex+1, toRemoveCounter);
     }
     clusterize.update(activeHtml);
     clusterize.refresh(true);
@@ -377,6 +450,52 @@ $(window).ready(function(){
       for (let i=0, n=docs.length; i<n; i++) {
         let msg = constructMessage(docs[i]);
         allMsgs.push(msg);
+
+        // Add parents only
+        if (!rootNode && msg.numOfChildren > 0) {
+          // Create the root node (first message). All proceeding messages
+          // are added to this node.
+          rootNode = new MsgNode(msg.index, msg.level);
+          currentNode = rootNode;
+          parentNodes[msg.level-minLevel] = currentNode;
+        } else if (msg.numOfChildren > 0) {
+          if (msg.level === minLevel) {
+            currentNode = rootNode;
+            addNewSibling(msg.index, msg.level);
+            parentNodes[msg.level-minLevel] = currentNode;
+          } else if (msg.level === currentNode.level) {
+            addNewSibling(msg.index, msg.level);
+            parentNodes[msg.level-minLevel] = currentNode;
+          } else if (msg.level > currentNode.level) {
+            // Must be a child of the previous message (currentNode)
+            currentNode.firstChild = new MsgNode(msg.index, msg.level);
+            currentNode = currentNode.firstChild;
+            parentNodes[msg.level-minLevel] = currentNode;
+          } else {  // msg.level < currentNode.level
+            // console.log('Found a message (' + msg.index + ') whose level ' +
+            //   msg.level + ' is less than the current node ' + currentNode.level);
+            // console.log(JSON.parse(JSON.stringify(parentNodes)));
+            // console.log(msg.parentIndices);
+            // Find the parent level and index
+            // Iterate backwards through the parentIndices array from level - 1
+            let parentArrayIndex;
+            for (let i=msg.level-minLevel-1; i>=0; i--) {
+              if (msg.parentIndices[i] !== null) {
+                parentArrayIndex = i;
+                break;
+              }
+            }
+            // console.log('Parent node located at index ' + parentArrayIndex +
+            //   ' has message index ' + msg.parentIndices[parentArrayIndex]);
+            // console.log(JSON.parse(JSON.stringify(parentNodes[parentArrayIndex])));
+            // Found parentNode must already have a firstChild so add a
+            // sibling to it.
+            currentNode = parentNodes[parentArrayIndex].firstChild;
+            addNewSibling(msg.index, msg.level);
+          }
+        }
+
+        // console.log(msg);
         if (!messageIsFolded(msg.level, msg.parentIndices)) {
           let msgMarkup = getMarkup(msg);
           activeHtml.push(msgMarkup);
@@ -401,6 +520,7 @@ $(window).ready(function(){
       // not being able to scroll to bottom/flickering
       // skipping records when scrolling past cluster transitions
     });
+
     /**
      * 1+ log updated messages from the server (Relevant to live tests only).
      * This indicates an increment to a parent message number of children
@@ -635,7 +755,7 @@ function getVerifyMarkup(verifyData) {
 /**
  * Process a click event on a verification entry button that links to the
  * associated message. Scrolls the main log to the associated message.
- * @param {number} index - The rx index of the message.
+ * @param {number} index - The rx'd index of the message.
  */
 function indexLinkClicked(index) {
   let firstMsgIndex = allMsgs[0].index;
@@ -706,4 +826,75 @@ function openTab(event, tabName) {
     // Show the current tab, and add an "active" class to the button that opened the tab
     document.getElementById(tabName).style.display = "block";
     event.currentTarget.className += " active";
+}
+
+/**
+ * Add a new (parent type message) sibling to a parent message node (MsgNode).
+ * @param {number} index - The message index.
+ * @param {number} level - The log level of the message.
+ */
+function addNewSibling(index, level) {
+  // Navigate to first null nextSibling
+  // then add a new nextSibling node
+  while (currentNode.nextSibling !== null) {
+    currentNode = currentNode.nextSibling;
+  }
+  currentNode.nextSibling = new MsgNode(index, level);
+  currentNode = currentNode.nextSibling;
+}
+
+/**
+ * Find and return the MsgNode of a parent message given the message index
+ * and those of its parents.
+ * @param {number} index - The message index.
+ * @param parentIndices {[number]} - Array of the parent indices of the
+ * message.
+ * @returns {MsgNode|undefined} - The MsgNode instance of the message,
+ * undefined if not found.
+ */
+function iterateToNode(index, parentIndices) {
+  // Start with the root node
+  let node = rootNode;
+  parentIndices.push(index);
+  for (let i=0; i<parentIndices.length; i++) {
+    console.log("Processing level " + i);
+    if (parentIndices[i] === null) {
+      continue;
+    }
+    while (node.index !== parentIndices[i]) {
+      console.log("No match for node with index " + node.index);
+      node = node.nextSibling;
+    }
+    console.log("Found node for level " + i);
+    console.log(node);
+    if (node.index == index) {
+      return node;
+    }
+    node = node.firstChild;
+  }
+}
+
+/**
+ * Find all the children that are themselves parent nodes for a given
+ * message node (MsgNode). This function is recursive as it has to iterate
+ * through child and sibling node branches i.e. all of the tree beneath the
+ * node in the request.
+ * @param {MsgNode} node - The parent node.
+ * @param {Array} children - An outer scope array to add the children to.
+ */
+function findChildren(node, children) {
+  console.log('Find children for node with index ' + node.index);
+  let currentNode = node;
+  if (currentNode.firstChild === null) {
+    return;
+  } else {
+    currentNode = currentNode.firstChild;
+    children.push(currentNode);
+    findChildren(currentNode, children);
+    while (currentNode.nextSibling !== null) {
+      children.push(currentNode.nextSibling);
+      currentNode = currentNode.nextSibling;
+      findChildren(currentNode, children);
+    }
+  }
 }
