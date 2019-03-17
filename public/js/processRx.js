@@ -7,10 +7,11 @@ let txd_verify_init = false; // Message sent to server to initialise test
 // verification document search and tracking
 let previousClass;
 let previousTest;
-// FIXME Requires compatibility with older logs pytest-phases < v0.13.0.
-//  Probably should be 1-5 default and pass in min and max going forward.
-const minLevel = 0;  // 1 for pytest-phases < v0.13.0
-const maxLevel = 9;  // 5 for pytest-phases < v0.13.0
+// Set default log level min 1 and max 5 for pytest-phases versions that
+// did not include this in every message.
+let minLevel = 1;
+let maxLevel = 5;
+let levelRangeSet = false;  // Flag so min and max level are only set once.
 
 // Variables used to keep track of parent messages (those with child
 // messages with higher log levels proceeding them).
@@ -27,9 +28,10 @@ class MsgNode {
 let rootNode;  // The complete parent node tree
 let currentNode;  // Reference to the current parent in the tree (within
 // the rootNode tree).
-let parentNodes = new Array(maxLevel - minLevel + 1);  // A list of
-// message indices of the parent ancestors of the current node. The index
-// is related to the parents log level. Note that this list can skip levels
+let parentNodes = new Array();  // A list of message indices of the parent
+// ancestors of the current node. The length is set when the min and max
+// log levels have been set. The index is related to the parents log level.
+// Note that this list can skip levels
 // i.e. a level 4 log message could have two parents; one at level 0 and the
 // second at level 3.
 
@@ -445,6 +447,15 @@ $(window).ready(function(){
      * @param {[]} docs - Array of log messages (documents).
      */
     socket.on('saved messages', function(docs){
+      console.log(docs);
+      if (!levelRangeSet) {
+        if (docs[0].hasOwnProperty("minLevel")) {
+          minLevel = docs[0].minLevel;
+          maxLevel = docs[0].maxLevel;
+        }
+        parentNodes = new Array(maxLevel - minLevel + 1);
+        levelRangeSet = true;
+      }
       // TODO check for duplicate messages
       console.log(docs.length + " new messages received");
       for (let i=0, n=docs.length; i<n; i++) {

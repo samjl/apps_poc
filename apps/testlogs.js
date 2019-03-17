@@ -16,7 +16,6 @@ class TestLogClientConn {
     this.projection = undefined;
     // transmitted. Note that this is not an array index.
     this.id = new Date().getMilliseconds();
-    let parent = this;
 
     this.socket.on('init', async (data) => {
       // getTestLogs(_db, this.socket, data.params.session, data.params.module);
@@ -48,14 +47,31 @@ class TestLogClientConn {
         'status': 1
       };
       let err, doc = await this._db.collection('modules').findOne(
-        this.findMatch, this.projection);
+        this.findMatch, {'projection': this.projection});
       if (err) {
         console.log('Finding module status failed with error:');
         console.log(err);
       } else {
+        // Events like timers (and button clicks etc.) have their own this
+        // context so here we use alias the class context this to parent
+        let parent = this;
         if (!doc || (doc.hasOwnProperty('status') && doc.status !== 'complete')) {
           this.testLogsLive(this.pipeline);
-          this.timer = setInterval(this.intervalFunc, 500, this);
+          this.timer = setInterval(function() {
+            // console.log('Timer fired');
+            let txData = parent.collatedLogs;
+            let txUpdates = parent.collatedUpdates;
+            if (txData.length > 0) {
+              if (txData[txData.length - 1].index !== parent.lastIndexTxd) {
+                parent.msgsTxd += txData.length;
+                // console.log('Emitting ' + txData.length + ' logs, total transmitted ' +
+                //   parent.msgsTxd);
+                parent.socket.emit('saved messages', txData);
+                parent.socket.emit('updated messages', txUpdates);
+                parent.lastIndexTxd = txData[txData.length - 1].index;
+              }
+            }
+          }, 500, this);
           this.testsOutcomeLive(this.pipeline);
           this.sessionProgressLive()
         }
@@ -193,25 +209,6 @@ class TestLogClientConn {
         // monitoring testresults in liveTestResultsOutcome
       }
     });
-  }
-
-  // Events like timers (and button clicks etc.) have their own this context
-  // so here we use alias the class context this to parent
-  // FIXME move outside class?
-  intervalFunc(parent) {
-    // console.log('Timer fired');
-    let txData = parent.collatedLogs;
-    let txUpdates = parent.collatedUpdates;
-    if (txData.length > 0) {
-      if (txData[txData.length - 1].index !== parent.lastIndexTxd) {
-        parent.msgsTxd += txData.length;
-        // console.log('Emitting ' + txData.length + ' logs, total transmitted ' +
-        //   parent.msgsTxd);
-        parent.socket.emit('saved messages', txData);
-        parent.socket.emit('updated messages', txUpdates);
-        parent.lastIndexTxd = txData[txData.length - 1].index;
-      }
-    }
   }
 
   async testLogsLinks(match) {
