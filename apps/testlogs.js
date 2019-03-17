@@ -6,9 +6,15 @@ class TestLogClientConn {
     // attributes required for timed test log transmission and tracking
     this.collatedLogs = [];
     this.collatedUpdates = [];
+
     this.streamMsgsRxd = 0;
     this.msgsTxd = 0;
     this.lastIndexTxd = 0;  // The message index of the last message
+
+    this.streamUpdatesRxd = 0;
+    this.updatesTxd = 0;
+    this.lastUpdateIndexTxd = 0;
+
     this.sessionId = undefined;
     this.moduleName = undefined;
     this.pipeline = undefined;
@@ -60,15 +66,21 @@ class TestLogClientConn {
           this.timer = setInterval(function() {
             // console.log('Timer fired');
             let txData = parent.collatedLogs;
-            let txUpdates = parent.collatedUpdates;
             if (txData.length > 0) {
               if (txData[txData.length - 1].index !== parent.lastIndexTxd) {
                 parent.msgsTxd += txData.length;
                 // console.log('Emitting ' + txData.length + ' logs, total transmitted ' +
                 //   parent.msgsTxd);
                 parent.socket.emit('saved messages', txData);
-                parent.socket.emit('updated messages', txUpdates);
                 parent.lastIndexTxd = txData[txData.length - 1].index;
+              }
+            }
+            let txUpdates = parent.collatedUpdates;
+            if (txUpdates.length > 0) {
+              if (txUpdates[txUpdates.length - 1].index !== parent.lastUpdateIndexTxd) {
+                parent.updatesTxd += txUpdates.length;
+                parent.socket.emit('updated messages', txUpdates);
+                parent.lastUpdateIndexTxd = txUpdates[txUpdates.length - 1].index;
               }
             }
           }, 500, this);
@@ -116,12 +128,17 @@ class TestLogClientConn {
           this.msgsTxd = 0;
           this.streamMsgsRxd = 0;
           this.collatedLogs = [];
-          this.collatedUpdates = [];
         }
         this.collatedLogs.push(change.fullDocument);
         this.streamMsgsRxd += 1;
       } else if (change.operationType === 'update') {
+        if (this.updatesTxd > 0 && this.streamUpdatesRxd === this.updatesTxd) {
+          this.updatesTxd = 0;
+          this.streamUpdatesRxd = 0;
+          this.collatedUpdates = [];
+        }
         this.collatedUpdates.push(change.fullDocument);
+        this.streamUpdatesRxd += 1;
       }
     });
   }
