@@ -331,12 +331,12 @@ $(window).ready(function(){
 
       if (children.length === 0) {
         // Clicked element has no children that are themselves parents
-        // console.log('children length is 0');
         lengthOfBlock = allMsgs[allMsgsPosition].numOfChildren;
         for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
           toInsertIndices.push(x);
           toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
         }
+        startBlockIndex = clickedMsgIndex + allMsgs[allMsgsPosition].numOfChildren + 1;
       } else {
         let prevFoldState = false;
         let prevLevel = 0;
@@ -383,6 +383,14 @@ $(window).ready(function(){
           startBlockIndex = children[i].index + lengthOfBlock + 1;
         }
       }
+      let remainingMsgs = allMsgs[allMsgsPosition].numOfChildren - (startBlockIndex - clickedMsgIndex) + 1;
+      if (remainingMsgs > 0) {
+        for (let x = startBlockIndex; x < startBlockIndex + remainingMsgs; x++) {
+          toInsertIndices.push(x);
+          toInsertHtml.push(getMarkup(allMsgs[x - allMsgs[0].index]));
+        }
+      }
+
       // console.log('Insert messages with indices ' + toInsertIndices);
       activeHtml.splice(activeIndex+1, 0, ...toInsertHtml);
       activeMsgIndices.splice(activeIndex+1, 0, ...toInsertIndices);
@@ -395,8 +403,8 @@ $(window).ready(function(){
 
       if (children.length === 0) {
         // Clicked element has no children that are themselves parents
-        // console.log('children length is 0 - fold all');
-        toRemoveCounter = allMsgs[allMsgsPosition].numOfChildren
+        toRemoveCounter = allMsgs[allMsgsPosition].numOfChildren;
+        startBlockIndex = clickedMsgIndex + allMsgs[allMsgsPosition].numOfChildren + 1;
       } else {
         let prevFoldState = false;
         let prevLevel = 0;
@@ -440,6 +448,11 @@ $(window).ready(function(){
           startBlockIndex = children[i].index + lengthOfBlock + 1;
         }
       }
+      let remainingMsgs = allMsgs[allMsgsPosition].numOfChildren - (startBlockIndex - clickedMsgIndex) + 1;
+      if (remainingMsgs > 0) {
+        toRemoveCounter += remainingMsgs;
+      }
+
       // console.log('Remove the next ' + toRemoveCounter + ' messages');
       activeHtml.splice(activeIndex+1, toRemoveCounter);
       activeMsgIndices.splice(activeIndex+1, toRemoveCounter);
