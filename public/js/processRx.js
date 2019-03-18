@@ -320,7 +320,6 @@ $(window).ready(function(){
     // Iterate through the children
     let startBlockIndex = allMsgs[allMsgsPosition].index + 1;
 
-
     // TODO Quick check for if all children are folded/unfolded
     if (allMsgs[allMsgsPosition].foldState) {
       let toInsertIndices = new Array();
@@ -339,7 +338,18 @@ $(window).ready(function(){
           toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
         }
       } else {
+        let prevFoldState = false;
+        let prevLevel = 0;
         for (let i=0; i<children.length; i++) {
+          if (prevFoldState && allMsgs[children[i].index - allMsgs[0].index].level > prevLevel) {
+            if (i < children.length - 1 && children[i + 1].level > children[i].level) {
+              lengthOfBlock = children[i + 1].index - children[i].index;
+            } else {
+              lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
+            }
+            startBlockIndex = children[i].index + lengthOfBlock + 1;
+            continue;
+          }
           lengthOfBlock = children[i].index - startBlockIndex + 1;
           // console.log('Unfold block from ' + startBlockIndex + ' of length '
           //   + lengthOfBlock);
@@ -363,11 +373,13 @@ $(window).ready(function(){
           //   (children[i].index + 1) + ' of length ' + lengthOfBlock);
           startBlockIndex = children[i].index + 1;
           if (!childFoldState) {
-            for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
+            for (let x = startBlockIndex; x < startBlockIndex + lengthOfBlock; x++) {
               toInsertIndices.push(x);
-              toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
+              toInsertHtml.push(getMarkup(allMsgs[x - allMsgs[0].index]));
             }
           }
+          prevFoldState = childFoldState;
+          prevLevel = allMsgs[children[i].index - allMsgs[0].index].level;
           startBlockIndex = children[i].index + lengthOfBlock + 1;
         }
       }
@@ -386,11 +398,23 @@ $(window).ready(function(){
         // console.log('children length is 0 - fold all');
         toRemoveCounter = allMsgs[allMsgsPosition].numOfChildren
       } else {
+        let prevFoldState = false;
+        let prevLevel = 0;
         for (let i=0; i<children.length; i++) {
+          if (prevFoldState && allMsgs[children[i].index - allMsgs[0].index].level > prevLevel) {
+            if (i < children.length - 1 && children[i + 1].level > children[i].level) {
+              lengthOfBlock = children[i + 1].index - children[i].index;
+            } else {
+              lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
+            }
+            startBlockIndex = children[i].index + lengthOfBlock + 1;
+            continue;
+          }
+
           lengthOfBlock = children[i].index - startBlockIndex + 1;
           // console.log('Fold block from ' + startBlockIndex + ' of length '
           //   + lengthOfBlock);
-          toRemoveCounter += lengthOfBlock
+          toRemoveCounter += lengthOfBlock;
 
           // child block if from its index+1 to next child index (inclusive)
           let childMsgIndex= children[i].index - allMsgs[0].index;
@@ -407,12 +431,16 @@ $(window).ready(function(){
           //   (children[i].index + 1) + ' of length ' + lengthOfBlock);
           startBlockIndex = children[i].index + 1;
           if (!childFoldState) {
-            toRemoveCounter += lengthOfBlock
+            // console.log('Fold block from ' + startBlockIndex + ' of length '
+            // + lengthOfBlock);
+            toRemoveCounter += lengthOfBlock;
           }
+          prevFoldState = childFoldState;
+          prevLevel = allMsgs[children[i].index - allMsgs[0].index].level;
           startBlockIndex = children[i].index + lengthOfBlock + 1;
         }
       }
-      // console.log('Remove the next ' + toRemoveCounter + ' messages')
+      // console.log('Remove the next ' + toRemoveCounter + ' messages');
       activeHtml.splice(activeIndex+1, toRemoveCounter);
       activeMsgIndices.splice(activeIndex+1, toRemoveCounter);
     }
