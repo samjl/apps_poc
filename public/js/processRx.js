@@ -571,33 +571,63 @@ $(window).ready(function(){
       for (let i=0, n=docs.length; i<n; i++) {
         let allMsgsIndex = docs[i].index - allMsgs[0].index;
         allMsgs[allMsgsIndex] = constructMessage(docs[i], allMsgs[allMsgsIndex]);
+
+        // Check if a node with this index has already been added, if not
+        // insert it.
+        if (!rootNode && allMsgs[allMsgsIndex].numOfChildren > 0) {
+          // Create the root node (first message). All proceeding messages
+          // are added to this node.
+          rootNode = new MsgNode(allMsgs[allMsgsIndex].index, allMsgs[allMsgsIndex].level);
+          currentNode = rootNode;
+          parentNodes[allMsgs[allMsgsIndex].level - minLevel] = currentNode;
+        } else {
+          // Assume message is a parent (this could change in future?)
+          let direct = allMsgs[allMsgsIndex].level - minLevel;
+          let parentIndices = allMsgs[allMsgsIndex].parentIndices.slice(0, direct + 1);
+          let ret = nodeExists(allMsgs[allMsgsIndex].index, parentIndices);
+          let exists = ret.exists;
+          if (!exists) {
+            currentNode = ret.node;
+            if (allMsgs[allMsgsIndex].level > minLevel && currentNode.firstChild === null) {
+              currentNode.firstChild = new MsgNode(allMsgs[allMsgsIndex].index, allMsgs[allMsgsIndex].level);
+            } else {
+              addNewSibling(allMsgs[allMsgsIndex].index, allMsgs[allMsgsIndex].level);
+            }
+          }
+        }
+
         let activeIndex = activeMsgIndices.indexOf(docs[i].index);
         if (activeIndex !== -1) {
           activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsIndex]);
         }
-      };
+      }
       clusterize.update(activeHtml);
       clusterize.refresh(true);
     });
+
     socket.on('all verifications', function(allVerifications) {
       console.log('All verifications rx\'d (' + allVerifications.length + ')');
       for (let i = 0, len = allVerifications.length; i < len; i++) {
         $('#verifications').append(getVerifyMarkup(allVerifications[i]));
       }
     });
+
     socket.on('verification', function(verification) {
       $('#verifications').append(getVerifyMarkup(verification));
       console.log('Verification rx\'d for message with index ' +
         verification.indexMsg);
     });
+
     socket.on('module progress', function(progress) {
       $('#module_progress').append(getModuleProgressMarkup(progress));
     });
+
     socket.on('test outcome', function(data) {
       for (let i = 0, len = data.length; i < len; i++) {
         getModuleStatusMarkup(data[i]);
       }
     });
+
   });
 });
 
@@ -911,6 +941,34 @@ function iterateToNode(index, parentIndices) {
     }
     node = node.firstChild;
   }
+}
+
+function nodeExists(index, parentIndices) {
+  let node = rootNode;
+  for (let i=0; i<parentIndices.length; i++) {
+    if (parentIndices[i] === null) {
+      continue;
+    }
+    while (node.index !== parentIndices[i]) {
+      if (node.nextSibling === null) {
+        return {"exists": false, "node": node};
+      } else {
+        node = node.nextSibling;
+      }
+    }
+    if (node.index !== parentIndices[i]) {
+      return {"exists": false, "node": node};
+    }
+    if (node.index == index) {
+      return {"exists": true, "node": node};
+    }
+    if (node.firstChild === null) {
+      return {"exists": false, "node": node};
+    } else {
+      node = node.firstChild;
+    }
+  }
+
 }
 
 /**
