@@ -9,7 +9,6 @@ function getMarkup(msgData) {
     logLevelSpacers += `<p class="logLevelSpacer ${msgData.levelClass}" style="display: ${getDisplay(userControls.tabs)};background: darkgrey"></p>`
   }
   let tagElements = ``;
-  console.log(msgData);
   if (msgData.tags !== undefined) {
     msgData.tags.forEach(function (tag) {
       tagElements += `<pre class="tags">${tag}</pre>`

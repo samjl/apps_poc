@@ -488,7 +488,6 @@ $(window).ready(function(){
      * @param {[]} docs - Array of log messages (documents).
      */
     socket.on('saved messages', function(docs){
-      console.log(docs);
       if (!levelRangeSet) {
         if (docs[0].hasOwnProperty("minLevel")) {
           minLevel = docs[0].minLevel;
