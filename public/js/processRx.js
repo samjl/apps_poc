@@ -543,6 +543,7 @@ $(window).ready(function(){
             // sibling to it.
             currentNode = parentNodes[parentArrayIndex].firstChild;
             addNewSibling(msg.index, msg.level);
+            parentNodes[msg.level-minLevel] = currentNode;
           }
         }
 
