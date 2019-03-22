@@ -287,7 +287,6 @@ $(window).ready(function(){
   let scrollHeight = parseInt(contentHeight / 22) * 22;
   console.log("Content height: " + contentHeight + ", scroll height set to: " + scrollHeight);
   $("#scrollArea").css('max-height', scrollHeight + 'px');
-  updateLevelDropDown();
 
   clusterize = new Clusterize({
     scrollId: 'scrollArea',
@@ -495,6 +494,7 @@ $(window).ready(function(){
         }
         parentNodes = new Array(maxLevel - minLevel + 1);
         levelRangeSet = true;
+        updateLevelDropDown();
       }
       // TODO check for duplicate messages
       console.log(docs.length + " new messages received");
