@@ -1,4 +1,5 @@
 const ldap = require('ldapjs');
+const ObjectId = require('mongodb').ObjectId;
 
 class ReserveClientConn {
   constructor(_db, socket, namespace) {
@@ -25,22 +26,30 @@ class ReserveClientConn {
       }
     });
     this.socket.on('reserve', async (data) => {
-      let testrig = await this.findTestrig(data.testrig);
-      if (testrig !== null) {
-        this.reserve(testrig, data.user);
+      console.log("Reserve requested, data:");
+      console.log(data);
+      if (data.device === '') {
+        // If testrig is unset then reserve all devices in the testrig.
+        // Initial find in order to check if testrig is already reserved.
+        let testrig = await this.findTestrig(data.testrig);
+        this.reserveTestrig(testrig, data.user);
+      } else {
+        // Reserve the specified device of the testrig.
+        // Initial find in order to check if device is already reserved.
+        let device = await this.findDevice(data.testrig, data.device);
+        this.reserveDevice(device, data.device, data.user, data.testrig)
       }
     });
     this.socket.on('release', async (data) => {
-      let testrig = await this.findTestrig(data.testrig);
-      if (testrig !== null) {
-        this.release(testrig, data.user);
-      }
+      console.log("Release requested, data:");
+      console.log(data);
+      this.release(data.testrig, data.device, data.user);
     });
 
   }
 
   async findTestrig(testrig) {
-    let match = {'name': testrig};
+    let match = {'_id': new ObjectId(testrig)};
     let err, response = await this._db.collection('testrigs').findOne(match);
     if (err) {
       console.log('Failed to find test rig ' + testrig + ' with error:');
@@ -49,85 +58,210 @@ class ReserveClientConn {
     return response;
   }
 
-  release(testrigDoc, username) {
-    let ip = this.socket.handshake.address;
-    let reserved_user = testrigDoc.reservations[0].user;
-    if (reserved_user === username || this.adminUser === username) {
-      console.log('Releasing ' + testrigDoc.name + ' for user ' + username
-        + ' @ IP ' + ip);
-      let end = new Date(Date.now()).toISOString();
-      let prevUser = testrigDoc.reservations[0];
-      prevUser.end = end;
-      let match = {'name': testrigDoc.name};
-      let update = {'$set': {'reservations.0.end': end}};
-      this._db.collection('testrigs').updateOne(match, update, (err, result) => {
-        if(err == null && result.modifiedCount === 1 && result.matchedCount === 1) {
-          console.log('Successfully updated the reservation');
-          this.namespace.emit('released', {
-            testrig: testrigDoc.name,
-            prevUser: testrigDoc.reservations[0]
-          });
-        } else {
-          console.log('User ' + username + ' failed to release test rig ' +
-            testrigDoc.name + ' with error:');
-          console.log(err);
-        }
-        // TODO tell the client that it was unsuccessful
-      });
+  async findDevice(testrigId, deviceName) {
+    let match = {
+      '_id': new ObjectId(testrigId),
+      'devices': {'$elemMatch': {'longName': deviceName}}
+    };
+    let projection = {
+      'name': 1,
+      'devices.$': 1
+    };
+    let err, response = await this._db.collection('testrigs').findOne(match, {'projection': projection});
+    if (err) {
+      console.log('Failed to find test rig ' + testrigId + ' with error:');
+      console.log(err);
     }
+    return response;
   }
 
-  // TODO enhancement: When someone tries to reserve/request a rig that is
-  // reserved send a message to the requester.
-  reserve(testrigDoc, username) {
-    if (testrigDoc.reservations[0].hasOwnProperty('end')) {
-      // Test rig is not currently reserved
+  release(testrigId, deviceName, username) {
+    let match = {'_id': new ObjectId(testrigId)};
+    let end = new Date(Date.now()).toISOString();
+    let update = {'$set': {"devices.$[elem].reservations.0.end": end}};
+    let options = {
+      'arrayFilters': [{'elem.reservations.0.end': {$exists: false}}],
+      'returnOriginal': false
+    };
+    if (username === this.adminUser) {
       let ip = this.socket.handshake.address;
-      console.log('Reserving ' + testrigDoc.name + ' for IP ' + ip +
-        ' and user ' + username);
-      let bulk = this._db.collection('testrigs').initializeOrderedBulkOp();
-      let startTime = new Date(Date.now()).toISOString();
-      let match = {'name': testrigDoc.name};
-      bulk.find(match).updateOne({
-        '$push': {
-          'reservations': {
-            '$each': [{
-              'user': username,
-              'ip': ip,
-              'start': startTime
-            }],
-            '$position': 0
+      console.log('ADMIN RELEASING DEVICE ' + deviceName + ' TESTRIG ' +
+        testrigId + ' (from IP ' + ip + ')');
+    } else {
+      // Add username to array filters - only release users own reservations.
+      options.arrayFilters[0]['elem.reservations.0.user'] = username;
+    }
+    if (deviceName !== '') {
+      console.log('Releasing device ' + deviceName + ', a member of testrig '
+        + testrigId);
+      options.arrayFilters[0]['elem.longName'] = deviceName;
+      options.multi = false;
+    } else {
+      console.log('Releasing all devices for testrig ' + testrigId);
+      options.multi = true;
+    }
+    this._db.collection('testrigs').findOneAndUpdate(match, update, options, (err, result) => {
+      console.log(err);
+      console.log(result);
+      console.log(result.value.devices[0]);
+
+      if(err == null) {  //  TODO other checks - && result.matchedCount ===
+        // 1 && result.modifiedCount === 1
+        console.log('Successfully updated the reservation (' +
+          result.modifiedCount + ' modifications)');
+        // Emit all testrig devices that have been released
+        let releasedDevices = Array();
+        for (let i=0; i<result.value.devices.length; i++) {
+          if (result.value.devices[i].reservations[0].hasOwnProperty('end')) {
+            releasedDevices.push({
+              'name': result.value.devices[i].longName,
+              'endTime': result.value.devices[i].reservations[0].end
+            })
           }
         }
-      });
-      bulk.find(match).updateOne({
-        '$pop': {
-          'reservations': 1
-        }
-      });
-      bulk.execute((err, result) => {
-        if(err == null && result.nModified === 2 && result.nMatched === 2) {
-          console.log('Successfully updated the reservation');
-          this.namespace.emit('reserved', {
-            testrig: testrigDoc.name,
-            user: username,
-            ip: ip,
-            start: startTime,
-            prevUser: testrigDoc.reservations[0]
-          });
-        } else {
-          console.log('User ' + username + ' failed to reserve test rig ' +
-            testrigDoc.name + ' with error:');
-          console.log(err);
-          // TODO emit
-        }
-      });
-    } else {
-      // Don't need to emit this to the client. If someone else reserves a
-      // test rig before this reservation completes then the test rig status
-      // is updated to indicate this.
-      console.log('Test rig is already reserved');
+        console.log(releasedDevices);
+        // Determine is all the devices in the testrig are now free.
+        let allDevicesAvailable = releasedDevices.length === result.value.devices.length;
+        this.namespace.emit('released', {
+          testrig: testrigId,
+          allAvailable: allDevicesAvailable,
+          devices: releasedDevices
+        });
+      } else {
+        console.log('User ' + username + ' failed to release test rig ' +
+          testrigId + ' with error:');
+        console.log(err);
+      }
+      // TODO tell the client that it was unsuccessful
+    });
+  }
+
+  reserveDevice(deviceDoc, deviceName, username, testrigName) {
+    console.log('Ensure the device is free');
+    if (!deviceDoc.devices[0].reservations[0].hasOwnProperty('end') &&
+        deviceDoc.devices[0].reservations[0].hasOwnProperty('user')) {
+      console.log(deviceDoc.devices[0].longName + " is already reserved");
+      return;
     }
+    let ip = this.socket.handshake.address;
+    console.log('Reserve device ' + deviceName + ' (from testrig ' +
+      deviceDoc.name + ') for user ' + username + ' with IP ' + ip);
+    let bulk = this._db.collection('testrigs').initializeOrderedBulkOp();
+    let startTime = new Date(Date.now()).toISOString();
+    let match = {
+      'name': deviceDoc.name,
+      'devices': {'$elemMatch': {'longName': deviceName}}
+    };
+    bulk.find(match).updateOne(
+      {'$push':
+        {'devices.$.reservations':
+          {'$each': [{'user': username, 'ip': ip, 'start': startTime}], '$position': 0}
+        }
+      }
+    );
+    // Reservations array must be full length for this to work.
+    bulk.find(match).updateOne(
+      {'$pop': {'devices.$.reservations': 1}}
+    );
+    bulk.execute(async (err, result) => {
+      console.log(err);
+      console.log(result);
+      if(err == null && result.nModified === 2 && result.nMatched === 2) {
+        console.log('Successfully updated the device reservation');
+        // Get the updated testrig document to check of all devices are
+        // reserved.
+        let testrig = await this.findTestrig(testrigName);
+        console.log(testrig);
+        let allReserved = true;
+        for(let i=0; i<testrig.devices.length; i++) {
+          console.log(testrig.devices[i].reservations[0]);
+          if (testrig.devices[i].reservations[0].hasOwnProperty('end')) {
+            allReserved = false;
+            break;
+          }
+        }
+        console.log('All devices reserved: ' + allReserved);
+        this.namespace.emit('device reserved', {
+          testrig: deviceDoc._id,
+          allReserved: allReserved,
+          device: deviceName,
+          user: username,
+          ip: ip,
+          start: startTime,
+          prevRes: deviceDoc.devices[0].reservations[0]
+        });
+      } else {
+        console.log('User ' + username + ' failed to reserve device ' +
+          deviceName + ' with error:');
+        console.log(err);
+        // TODO emit
+      }
+    });
+  }
+
+
+  reserveTestrig(testrigDoc, username) {
+    // Reserve as many devices in a testrig as possible.
+    // Get all devices in the testrig that are free.
+    let devices = Array();
+    let deviceIndices = Array();
+    for (let i=0; i<testrigDoc.devices.length; i++) {
+      if (!testrigDoc.devices[i].reservations[0].hasOwnProperty('end') &&
+          testrigDoc.devices[i].reservations[0].hasOwnProperty('user') &&
+          testrigDoc.devices[i].reservations[0].user !== username) {
+        console.log('Testrig ' + testrigDoc.devices[i].longName +
+          ' is already reserved');
+        // return;
+      } else {
+        devices.push({
+          'name': testrigDoc.devices[i].longName,
+          'prevRes': testrigDoc.devices[i].reservations[0]
+        });
+        deviceIndices.push(i);
+      }
+    }
+    let ip = this.socket.handshake.address;
+    console.log('Reserve all the devices in the testrig for user ' + username +
+                ' with IP ' + ip);
+    // TODO this can be updated to use a single update using arrayFilters
+    //  when they are implemented for bulk operations
+    let bulk = this._db.collection('testrigs').initializeOrderedBulkOp();
+    let startTime = new Date(Date.now()).toISOString();
+    let match = {'_id': testrigDoc._id};
+    for (let j=0; j<deviceIndices.length; j++) {
+      let reservePath = 'devices.' + deviceIndices[j] + '.reservations';
+      let update = {'$push': {}};
+      update['$push'][reservePath] = {
+        '$each': [{'user': username, 'ip': ip, 'start': startTime}],
+        '$position': 0
+      };
+      let remove = {'$pop': {}};
+      remove['$pop'][reservePath] = 1;
+      // Update the current reservation.
+      bulk.find(match).updateOne(update);
+      // Remove the oldest reservation. Note: reservations array must be full
+      // length for this to work.
+      bulk.find(match).updateOne(remove);
+    }
+    bulk.execute((err, result) => {
+      // FIXME if(err == null && result.nModified === 2 && result.nMatched ===
+      // 2) {
+      if(err == null && result.nModified > 0) {
+        console.log('Successfully updated the testrig reservation');
+        this.namespace.emit('testrig reserved', {
+          testrig: testrigDoc._id,
+          devices: devices,
+          user: username,
+          ip: ip,
+          start: startTime,
+        });
+      } else {
+        console.log('User ' + username + ' failed to reserve test rig ' +
+          testrigDoc.name + ' with error:');
+        console.log(err);
+        // TODO emit
+      }
+    });
   }
 
   allTestRigs() {
@@ -155,7 +289,9 @@ class ReserveClientConn {
       console.log('Found user:');
       console.log(user);
       if (user.length === 1) {
-        let longname = user[0].name;
+        let longname = user[0].name;  // FIXME save this at this end and
+        // don't use the username from client to reserve/release - or use both?
+        // TODO on client signOut clear this name
         let ldapUser = new LdapClient(longname);
         let userBindSuccess = await ldapUser.bind(password);
         if (userBindSuccess) {

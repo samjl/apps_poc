@@ -3,17 +3,25 @@ let reserve = (function() {
     socket: undefined,
     connected: false,
     ip: undefined,
-    userLongName: undefined
+    userLongName: undefined,
+    userAdmin: 'Jenkins Test'
   };
   reserve.resetSocket = function() {
     this.socket = io('/reservations');
   };
-  reserve.reserveReleaseTestRig = function(testrig, action) {
-    console.log(action + ' test rig ' + testrig);
+
+  reserve.reserveReleaseTestRig = function(element) {
+    // console.log(action + ' test rig ' + testrig);
+    let action = element.getAttribute("data-action");
+    let testrig = element.getAttribute("data-testrig");
+    let device = element.getAttribute("data-device");
+    console.log('action: ' + action + ', testrig: ' + testrig + ', device: '
+      + device);
     if (reserve.userLongName) {
       reserve.socket.emit(action.toLowerCase(), {
         user: reserve.userLongName,
-        testrig: testrig
+        testrig: testrig,
+        device: device
       });
     } else {
       // Shouldn't ever see this as button should always be disabled in
@@ -22,97 +30,247 @@ let reserve = (function() {
     }
   };
 
-  reserve.testRigTemplate = function(data) {
-    let action = 'Reserved';
+  reserve.deviceTemplate = function(data, singleDevice, testrigName="",
+                                    deviceLinks=[], testerLinks=[], testrigId) {  //FIXME
+    let action = 'Reserve';
     let buttonStatus;
-    let prevUser;
-    let prevIp;
-    let prevStart;
-    let prevEnd;
-    let currentUser;
-    let currentIp;
-    let currentStart;
-    if (data.reservations[0].hasOwnProperty('end')) {
-      // No current user - index 0 is the previous user
-      currentUser = '';
-      currentIp = '';
-      currentStart = '';
+    // let buttonClass;
+    let prevUser = "";
+    // let prevIp = "";
+    let prevStart = "";
+    let prevEnd = "";
+    let currentUser = "";
+    // let currentIp = "";
+    let currentStart = "";
+    let rowClass = "device";
+    let links = "";
+    let tester = "";
+    if (Object.entries(data.reservations[0]).length !== 0) {
+      if (data.reservations[0].hasOwnProperty('end')) {
+        // No current user - index 0 is the previous user
+        currentUser = '';
+        // currentIp = '';
+        currentStart = '';
+        action = 'Reserve';
+        buttonStatus = '';
+        // buttonClass = "res-rel-button";
+        // prevIp = data.reservations[0].ip;
+        prevUser = data.reservations[0].user;
+        prevStart = formatDateTime(data.reservations[0].start);
+        prevEnd = formatDateTime(data.reservations[0].end);
+      } else {
+        console.log('Processing:::::: ' + data.longName);
+        // Test rig is reserved
+        currentUser = data.reservations[0].user;
+        currentStart = formatDateTime(data.reservations[0].start);
+        action = 'Release';
+        if (reserve.userLongName !== currentUser && reserve.userLongName !== 'Jenkins' +
+          ' Test') {
+          buttonStatus = 'disabled';
+        }
+        // if (currentUser === reserve.userLongName) {
+        //   action = 'Release';
+        // } else {
+        //   buttonStatus = 'disabled';
+        // }
+        prevUser = data.reservations[1].user;
+        prevStart = formatDateTime(data.reservations[1].start);
+        prevEnd = formatDateTime(data.reservations[1].end);
+      }
+    } else {
       action = 'Reserve';
       buttonStatus = '';
-      prevIp = data.reservations[0].ip;
-      prevUser = data.reservations[0].user;
-      prevStart = formatDateTime(data.reservations[0].start);
-      prevEnd = formatDateTime(data.reservations[0].end);
-    } else {
-      // Test rig is reserved
-      currentIp = data.reservations[0].ip;
-      currentUser = data.reservations[0].user;
-      currentStart = formatDateTime(data.reservations[0].start);
-      if (currentUser === reserve.userLongName) {
-        action = 'Release';
-      } else {
-        buttonStatus = 'disabled';
-      }
-      prevIp = data.reservations[1].ip;
-      prevUser = data.reservations[1].user;
-      prevStart = formatDateTime(data.reservations[1].start);
-      prevEnd = formatDateTime(data.reservations[1].end);
     }
     if ($('#loginButton').attr('data-signin') === '') {
       // Not logged in so disable ALL buttons
       buttonStatus = 'disabled';
+      // buttonClass = "disabled-button";
     }
 
+    if (singleDevice) {
+      rowClass = "testrig";
+    } else {
+      testrigName = '';
+    }
+
+    if (deviceLinks.length > 0) {
+      links = deviceLinks.join('<br>');
+    }
+
+    if (testerLinks.length > 0) {
+      tester = testerLinks.join('<br>');
+    }
+    console.log(tester);
+
     return `
-    <tr id="${data.name}_row">
-      <td id="${data.name}_name">${data.name}</td>
-      <td id="${data.name}_lx">${data.nodes[0]['linux-ip-address']}</td>
-      <td id="${data.name}_mng">${data.nodes[0]['management-ip-address']}</td>
+    <tr id="${data.longName}_row" class=${rowClass}>
+      <td id="${data.longName}_testrig">${testrigName}</td>
+      <td id="${data.longName}_name">${data.longName}</td>
+      <td id="${data.longName}_type">${data.hardware.type}</td>
+      <td id="${data.longName}_links">${links}</td>
+      <td id="${data.longName}_lx">${data.linux.ip}</td>
+      <td id="${data.longName}_mng">${data.management.ip}</td>
+      <td id="${data.longName}_pwr">${data.powerSwitch.ip}/${data.powerSwitch.outlet}</td>
+      <td id="${data.longName}_tester">${tester}</td>
       <td style="padding: 0; background-color: white">
-        <input id="${data.name}" type="button" value=${action} 
-        onclick="reserve.reserveReleaseTestRig(this.id, this.value)" 
+        <input id="${data.longName}" type="button" value=${action} data-testrig="${testrigId}"
+        data-device="${data.longName}" data-action="${action}" onclick="reserve.reserveReleaseTestRig(this)"
         style="display: inline-block; position: relative; width:100%; 
-        height: 100%; padding: 4px;" class="reserve-button" ${buttonStatus}>
+        height: 100%; padding: 4px;" class="res-rel-button" ${buttonStatus}>
       </td>
-      <td id="${data.name}_user">${currentUser}</td>
-      <td id="${data.name}_ip">${reserve.ipv6Toipv4(currentIp)}</td>
-      <td id="${data.name}_start">${currentStart}</td>
-      <td id="${data.name}_prev_user">${prevUser}</td>
-      <td id="${data.name}_prev_ip">${reserve.ipv6Toipv4(prevIp)}</td>
-      <td id="${data.name}_prev_start">${prevStart}</td>
-      <td id="${data.name}_prev_end">${prevEnd}</td>
+      <td id="${data.longName}_user">${currentUser}</td>
+      <td id="${data.longName}_start">${currentStart}</td>
+      <td id="${data.longName}_prev_user">${prevUser}</td>
+      <td id="${data.longName}_prev_start">${prevStart}</td>
+      <td id="${data.longName}_prev_end">${prevEnd}</td>
     </tr>
     `;
   };
-  reserve.testRigUpdate = function(testrig) {
-    console.log(testrig.name);
-    $('#testrigs tr:last').after(
-      this.testRigTemplate(testrig)
-    );
+
+  reserve.testRigTemplate = function(id, description) {
+    let buttonStatus = 'disabled';
+    if (reserve.userLongName === 'Jenkins Test') {
+      buttonStatus = '';
+    }
+
+    return `
+    <tr id="${id}_row" class="testrig">
+      <td id="${id}_testrig">${description}</td>
+      <td id="${id}_name"></td>
+      <td id="${id}_type"></td>
+      <td id="${id}_links"></td>
+      <td id="${id}_lx"></td>
+      <td id="${id}_mng"></td>
+      <td id="${id}_pwr"></td>
+      <td id="${id}_tester"></td>
+      <td style="display: flex; padding: 0; background-color: white">
+        <input id="${id}_reserve" type="button" value="Reserve All" data-testrig="${id}"
+        data-device="" data-action="Reserve" onclick="reserve.reserveReleaseTestRig(this)"
+        style="display: inline-block; position: relative; width:50%; 
+        height: 100%; padding: 4px;" class="res-rel-testrig" ${buttonStatus}>
+        <input id="${id}_release" type="button" value="Release All" data-testrig="${id}"
+        data-device="" data-action="Release" onclick="reserve.reserveReleaseTestRig(this)"
+        style="display: inline-block; position: relative; width:50%; 
+        height: 100%; padding: 4px;" class="res-rel-testrig" ${buttonStatus}>
+      </td>
+      <td id="${id}_user"></td>
+      <td id="${id}_start"></td>
+      <td id="${id}_prev_user"></td>
+      <td id="${id}_prev_start"></td>
+      <td id="${id}_prev_end"></td>
+    </tr>
+    `;
   };
 
-  reserve.updateCurrReservation = function(testrig, user, ip, start, action,
+  reserve.testRigUpdate = function(testrig) {
+    console.log(testrig);
+    let numOfDevices = testrig.devices.length;
+    if (numOfDevices === 1) {
+      console.log("Single device testrig");
+      let testerConnections = Array();
+      if (testrig.devices[0].hasOwnProperty("ethernetTester")) {
+        for (let j=0; j < testrig.devices[0].ethernetTester.ports.length; j++) {
+          let connection = testrig.devices[0].ethernetTester.ports[j];
+          testerConnections.push(connection.deviceInterface + '<->' +
+            connection.testerInterface + ' ' + testrig.devices[0].ethernetTester.type
+            + ' ' + testrig.devices[0].ethernetTester.ip);
+        }
+      }
+      console.log(testerConnections);
+      $('#testrigs tr:last').after(
+        this.deviceTemplate(testrig.devices[0], true,
+          testrigName=testrig.description, deviceLinks=[],
+          testerLinks=testerConnections, testrig._id)
+      );
+    } else {
+      console.log("Add row for the parent testrig " + testrig.name);
+      $('#testrigs tr:last').after(
+        this.testRigTemplate(testrig._id, testrig.description)
+      );
+      for (let i=0; i < numOfDevices; i++) {
+        let device = testrig.devices[i];
+        let deviceLinks = Array();
+        for (let i=0; i < testrig.links.length; i++) {
+          console.log(Object.values(testrig.links[i]));
+          if (Object.values(testrig.links[i]).indexOf(device.longName) !== -1) {
+            deviceLinks.push(testrig.links[i].nearDevice + "/" +
+              testrig.links[i].nearInterface + "<->" +
+              testrig.links[i].farDevice + "/" +
+              testrig.links[i].farInterface);
+          }
+        }
+        let testerConnections = Array();
+        if (testrig.devices[i].hasOwnProperty("ethernetTester")) {
+          for (let j=0; j < testrig.devices[i].ethernetTester.ports.length; j++) {
+            let connection = testrig.devices[i].ethernetTester.ports[j];
+            testerConnections.push(connection.deviceInterface + '<->' +
+              connection.testerInterface + ' ' + testrig.devices[i].ethernetTester.type
+              + ' ' + testrig.devices[i].ethernetTester.ip);
+          }
+        }
+        console.log(testerConnections);
+        console.log(deviceLinks);
+        console.log("Add row for child device " + device.longName);
+        $('#testrigs tr:last').after(
+          this.deviceTemplate(testrig.devices[i], false,
+            testrigName = testrig.name, deviceLinks = deviceLinks,
+            testerConnections = testerConnections, testrig._id)
+        );
+        // TODO if device is reserved by current user enable release all
+        // TODO if device is free enable reserve all
+        if (reserve.userLongName !== undefined) {
+          if (testrig.devices[i].reservations[0].user === reserve.userLongName &&
+              !testrig.devices[i].reservations[0].hasOwnProperty('end')) {
+            $('#' + testrig._id + '_release').prop('disabled',
+              reserve.checkButtonState(false));
+          } else if (testrig.devices[i].reservations[0].hasOwnProperty('end')) {
+            $('#' + testrig._id + '_reserve').prop('disabled',
+              reserve.checkButtonState(false));
+          }
+        }
+      }
+    }
+  };
+
+  reserve.checkButtonState = function(disabled) {
+    console.log("Current logged in user: " + reserve.userLongName);
+    console.log("Admin user: " + reserve.userAdmin);
+    if (reserve.userLongName === reserve.userAdmin) {
+      // Admin user buttons are always enabled.
+      return false;
+    } else if (reserve.userLongName === undefined) {
+      // No user is signed in, all buttons are disabled.
+      return true;
+    } else {
+      // Non-admin user is logged in so return the original state.
+      return disabled;
+    }
+  }
+
+  reserve.updateCurrReservation = function(testrig, user, start, action,
                                            disabled) {
     let startParsed = formatDateTime(start);
     $('#' + testrig + '_user').text(user);
-    $('#' + testrig + '_ip').text(reserve.ipv6Toipv4(ip));
     $('#' + testrig + '_start').text(startParsed);
-    $('#' + testrig).val(action).prop('disabled', disabled);  // TODO change color/class
+    $('#' + testrig)
+      .val(action)
+      .attr("data-action", action)
+      .prop('disabled', reserve.checkButtonState(disabled));  // TODO change
+    // color/class
   };
 
-  reserve.updatePrevReservation = function(testrig, user, ip, start, end) {
+  reserve.updatePrevReservation = function(testrig, user, start, end) {
     let startParsed = formatDateTime(start);
     let endParsed = formatDateTime(end);
     $('#' + testrig + '_prev_user').text(user);
-    $('#' + testrig + '_prev_ip').text(reserve.ipv6Toipv4(ip));
     $('#' + testrig + '_prev_start').text(startParsed);
     $('#' + testrig + '_prev_end').text(endParsed);
   };
-  reserve.ipv6Toipv4 = function(ip) {
-    return ip.replace('::ffff:', '');
-  };
 
   reserve.signIn = function() {
+    console.log('Signing In');
+    console.log('Username: ' + $('#user').val());
+    console.log('Password: ' + $('#pass').val());
     reserve.socket.emit('login', {
       user: $('#user').val(),
       pass: $('#pass').val()
@@ -134,7 +292,8 @@ let reserve = (function() {
       $('#pass').val('');
       reserve.userLongName = undefined;
       // Make all buttons inactive
-      $('.reserve-button').attr('disabled', 'disabled');
+      $('.res-rel-button').prop('disabled', true);
+      $('.res-rel-testrig').prop('disabled', true);
       $('#loginButton').attr('data-signin', '');
       $('#loginButton').text('Sign In');
     }
@@ -157,7 +316,7 @@ function formatDateTime(dateTimeISOStr) {
   let parsed = '';
   if (dateTimeISOStr) {
     let dateTime = new Date(dateTimeISOStr);
-    let time = dateTime.toLocaleTimeString();
+    let time = dateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     let date = dateTime.toDateString();
     parsed = date + ' ' + time;
   }
@@ -179,38 +338,95 @@ $(window).ready(function() {
   reserve.socket.on('all_rigs', (data) => {
     console.log("All test rig info received");
     console.log(data);
-    $('#ip').text(' (' + reserve.ipv6Toipv4(data.client_ip) + ')');
     for (let i = 0, len = data.testrigs.length; i < len; i++) {
       reserve.testRigUpdate(data.testrigs[i]);
     }
   });
 
-  reserve.socket.on('reserved', (data) => {
-    console.log('Test rig  ' + data.testrig + ' reserved by ' + data.user +
-      ' (current client: ' + reserve.userLongName + ')');
+  reserve.socket.on('device reserved', (data) => {
+    console.log('Device ' + data.device + ' (in test rig ' + data.testrig +
+      ') reserved by ' + data.user + ' (current client: ' + reserve.userLongName + ')');
     console.log(data);
-    let action = 'Reserved';
+    let action = 'Reserve';
     let disable = false;
     if (data.user === reserve.userLongName) {
       // This client has the reservation
       action = 'Release';
+      $('#' + data.testrig + '_release').prop('disabled',
+        reserve.checkButtonState(false));
+    } else {
+      disable = true;
+      // $('#' + data.testrig + '_reserve').prop('disabled', true);
+      // TODO needs to check if all the testrig devices are reserved
+    }
+    if (data.allReserved) {
+      $('#' + data.testrig + '_reserve').prop('disabled',
+        reserve.checkButtonState(true));
+    }
+
+    reserve.updateCurrReservation(data.device, data.user, data.start, action, disable);
+    reserve.updatePrevReservation(data.device, data.prevRes.user, data.prevRes.start, data.prevRes.end);
+  });
+
+  reserve.socket.on('testrig reserved', (data) => {
+    console.log('Test rig  ' + data.testrig + ' reserved by ' + data.user +
+      ' (current client: ' + reserve.userLongName + ')');
+
+    console.log(data);
+    let action = 'Reserve';
+    let disable = false;
+    if (data.user === reserve.userLongName) {
+      // This client has the reservation
+      action = 'Release';
+      $('#' + data.testrig + '_release').prop('disabled',
+        reserve.checkButtonState(false));
     } else {
       disable = true;
     }
-    reserve.updateCurrReservation(data.testrig, data.user, data.ip,
-      data.start, action, disable);
-    reserve.updatePrevReservation(data.testrig, data.prevUser.user,
-      data.prevUser.ip, data.prevUser.start, data.prevUser.end);
+    $('#' + data.testrig + '_reserve').prop('disabled',
+      reserve.checkButtonState(true));
+
+    for (let i=0; i<data.devices.length; i++) {
+      reserve.updateCurrReservation(data.devices[i].name, data.user, data.start, action, disable);
+      reserve.updatePrevReservation(data.devices[i].name, data.devices[i].prevRes.user, data.devices[i].prevRes.start, data.devices[i].prevRes.end);
+
+    }
   });
 
   reserve.socket.on('released', (data) => {
-    console.log('Test rig  ' + data.testrig + ' released by ' + data.prevUser.user +
-      ' (current client: ' + reserve.userLongName + ')');
     console.log(data);
-    reserve.updateCurrReservation(data.testrig, '', '', '', 'Reserve',
-      false);
-    reserve.updatePrevReservation(data.testrig, data.prevUser.user, data.prevUser.ip,
-      data.prevUser.start, data.prevUser.end);
+    if (data.allAvailable) {
+      console.log('Testrig ' + data.testrig + ' released all devices');
+      $('#' + data.testrig + '_release').prop('disabled',
+        reserve.checkButtonState(true));
+    } else {
+      console.log('Testrig ' + data.testrig + ' released some devices');
+    }
+    // Enable the reserve all button for the associated testrig as at least
+    // 1 device can be reserved.
+    if (data.devices.length > 0) {
+      $('#' + data.testrig + '_reserve').prop('disabled',
+        reserve.checkButtonState(false));
+    }
+
+    for (let i=0; i<data.devices.length; i++) {
+      // update all devices (with end time) - if in reserved state
+      // move current user and since to prev user and from + add end time to to
+      console.log('Updating device ' + data.devices[i].name + '');
+      let prevUser = $('#' + data.devices[i].name + '_user').text();
+      let prevStart = $('#' + data.devices[i].name + '_start').text();
+      if (prevUser !== '') {
+        $('#' + data.devices[i].name + '_prev_user').text(prevUser);
+        $('#' + data.devices[i].name + '_prev_start').text(prevStart);
+        $('#' + data.devices[i].name + '_prev_end').text(formatDateTime(data.devices[i].endTime));
+        $('#' + data.devices[i].name + '_user').text('');
+        $('#' + data.devices[i].name + '_start').text('');
+        $('#' + data.devices[i].name)
+          .val("Reserve")
+          .attr("data-action", "Reserve")
+          .prop('disabled', reserve.checkButtonState(false));
+      }
+    }
   });
 
   reserve.socket.on('login auth', (data) => {
@@ -219,22 +435,10 @@ $(window).ready(function() {
       reserve.userLongName = data.longName;
       $('#loginButton').text(data.longName + ' Sign Out');
       $('#loginButton').removeAttr('data-signin');
-      $('.reserve-button').each(function() {
-        console.log($(this).attr('disabled'));
-        console.log($(this).attr('id'));
-        if ($(this).attr('value') === 'Reserve') {
-          $(this).removeAttr('disabled');
-        } else if ($(this).attr('value') === 'Release' || $(this).attr('value') === 'Reserved') {
-          let testrigUser = $('#' + $(this).attr('id') + '_user').text();
-          if (testrigUser === reserve.userLongName || reserve.userLongName === 'Jenkins Test') {
-            if ($(this).attr('value') === 'Reserved') {
-              $(this).attr('value', 'Release');
-            }
-            $(this).removeAttr('disabled');
-          }
-        }
-      });
-
+      // Remove the testrig table data rows and re-initialize.
+      $('table tr').not(':nth-child(1)').remove();
+      reserve.connected = true;
+      reserve.socket.emit('init');
       $('#loginModal').hide();
     } else {
       // Login failed

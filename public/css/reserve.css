@@ -12,11 +12,21 @@ th, caption {
 
 th {
   background: #505050;
-  color: #bfbfbf;
+  color: #f0f0f0;
   font-weight: bold;
 }
 
-td {
+tr {
   background: #949494;
+  font-size: smaller;
+}
+
+.testrig {
+  background: #949494;
+  font-size: smaller;
+}
+
+.device {
+  background: #bfbfbf;
   font-size: smaller;
 }
