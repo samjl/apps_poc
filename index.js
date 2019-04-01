@@ -68,7 +68,6 @@ tl.on('connection', function(socket) {
     }
     tlClient.closeChangeStreams();
     tlClient = null;
-    console.log('Disconnect detected for test logs namespace');
   });
   socket.on('error', (errData) => {
     console.log('socket error (test logs page)');
@@ -83,6 +82,8 @@ ses.on('connection', function(socket) {
     socket.handshake.address);
   let sesClient = new sessions.SessionDashClientConn(_db, socket);
   socket.on('disconnect', () =>  {
+    console.log('Disconnection from session namespace detected for ip ' +
+      socket.handshake.address);
     sesClient.closeChangeStreams();
     sesClient = null;
   });
