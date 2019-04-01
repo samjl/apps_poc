@@ -61,7 +61,7 @@ class ReserveClientConn {
   async findDevice(testrigId, deviceName) {
     let match = {
       '_id': new ObjectId(testrigId),
-      'devices': {'$elemMatch': {'longName': deviceName}}
+      'devices': {'$elemMatch': {'name': deviceName}}
     };
     let projection = {
       'name': 1,
@@ -94,7 +94,7 @@ class ReserveClientConn {
     if (deviceName !== '') {
       console.log('Releasing device ' + deviceName + ', a member of testrig '
         + testrigId);
-      options.arrayFilters[0]['elem.longName'] = deviceName;
+      options.arrayFilters[0]['elem.name'] = deviceName;
       options.multi = false;
     } else {
       console.log('Releasing all devices for testrig ' + testrigId);
@@ -114,7 +114,7 @@ class ReserveClientConn {
         for (let i=0; i<result.value.devices.length; i++) {
           if (result.value.devices[i].reservations[0].hasOwnProperty('end')) {
             releasedDevices.push({
-              'name': result.value.devices[i].longName,
+              'name': result.value.devices[i].name,
               'endTime': result.value.devices[i].reservations[0].end
             })
           }
@@ -140,7 +140,7 @@ class ReserveClientConn {
     console.log('Ensure the device is free');
     if (!deviceDoc.devices[0].reservations[0].hasOwnProperty('end') &&
         deviceDoc.devices[0].reservations[0].hasOwnProperty('user')) {
-      console.log(deviceDoc.devices[0].longName + " is already reserved");
+      console.log(deviceDoc.devices[0].name + " is already reserved");
       return;
     }
     let ip = this.socket.handshake.address;
@@ -150,7 +150,7 @@ class ReserveClientConn {
     let startTime = new Date(Date.now()).toISOString();
     let match = {
       'name': deviceDoc.name,
-      'devices': {'$elemMatch': {'longName': deviceName}}
+      'devices': {'$elemMatch': {'name': deviceName}}
     };
     bulk.find(match).updateOne(
       {'$push':
@@ -209,12 +209,12 @@ class ReserveClientConn {
       if (!testrigDoc.devices[i].reservations[0].hasOwnProperty('end') &&
           testrigDoc.devices[i].reservations[0].hasOwnProperty('user') &&
           testrigDoc.devices[i].reservations[0].user !== username) {
-        console.log('Testrig ' + testrigDoc.devices[i].longName +
+        console.log('Testrig ' + testrigDoc.devices[i].name +
           ' is already reserved');
         // return;
       } else {
         devices.push({
-          'name': testrigDoc.devices[i].longName,
+          'name': testrigDoc.devices[i].name,
           'prevRes': testrigDoc.devices[i].reservations[0]
         });
         deviceIndices.push(i);

@@ -44,7 +44,7 @@ let reserve = (function() {
     let currentStart = "";
     let rowClass = "device";
     let links = "";
-    let tester = "";
+    let tester = "None";
     if (Object.entries(data.reservations[0]).length !== 0) {
       if (data.reservations[0].hasOwnProperty('end')) {
         // No current user - index 0 is the previous user
@@ -59,7 +59,7 @@ let reserve = (function() {
         prevStart = formatDateTime(data.reservations[0].start);
         prevEnd = formatDateTime(data.reservations[0].end);
       } else {
-        console.log('Processing:::::: ' + data.longName);
+        console.log('Processing:::::: ' + data.name);
         // Test rig is reserved
         currentUser = data.reservations[0].user;
         currentStart = formatDateTime(data.reservations[0].start);
@@ -102,27 +102,37 @@ let reserve = (function() {
     }
     console.log(tester);
 
+    let pwrSwitchPort = "None";
+    if (data.powerSwitch.ip !== "") {
+      pwrSwitchPort = data.powerSwitch.ip + "/" + data.powerSwitch.outlet;
+    }
+
+    let hwType = data.hardware.type;
+    if (data.hardware.hasOwnProperty('revision')) {
+      hwType += ' ' + data.hardware.revision;
+    }
+
     return `
-    <tr id="${data.longName}_row" class=${rowClass}>
-      <td id="${data.longName}_testrig">${testrigName}</td>
-      <td id="${data.longName}_name">${data.longName}</td>
-      <td id="${data.longName}_type">${data.hardware.type}</td>
-      <td id="${data.longName}_links">${links}</td>
-      <td id="${data.longName}_lx">${data.linux.ip}</td>
-      <td id="${data.longName}_mng">${data.management.ip}</td>
-      <td id="${data.longName}_pwr">${data.powerSwitch.ip}/${data.powerSwitch.outlet}</td>
-      <td id="${data.longName}_tester">${tester}</td>
+    <tr id="${data.name}_row" class=${rowClass}>
+      <td id="${data.name}_testrig">${testrigName}</td>
+      <td id="${data.name}_name">${data.name}</td>
+      <td id="${data.name}_type">${hwType}</td>
+      <td id="${data.name}_links">${links}</td>
+      <td id="${data.name}_lx">${data.linux.ip}</td>
+      <td id="${data.name}_mng">${data.management.ip}</td>
+      <td id="${data.name}_pwr">${pwrSwitchPort}</td>
+      <td id="${data.name}_tester">${tester}</td>
       <td style="padding: 0; background-color: white">
-        <input id="${data.longName}" type="button" value=${action} data-testrig="${testrigId}"
-        data-device="${data.longName}" data-action="${action}" onclick="reserve.reserveReleaseTestRig(this)"
+        <input id="${data.name}" type="button" value=${action} data-testrig="${testrigId}"
+        data-device="${data.name}" data-action="${action}" onclick="reserve.reserveReleaseTestRig(this)"
         style="display: inline-block; position: relative; width:100%; 
         height: 100%; padding: 4px;" class="res-rel-button" ${buttonStatus}>
       </td>
-      <td id="${data.longName}_user">${currentUser}</td>
-      <td id="${data.longName}_start">${currentStart}</td>
-      <td id="${data.longName}_prev_user">${prevUser}</td>
-      <td id="${data.longName}_prev_start">${prevStart}</td>
-      <td id="${data.longName}_prev_end">${prevEnd}</td>
+      <td id="${data.name}_user">${currentUser}</td>
+      <td id="${data.name}_start">${currentStart}</td>
+      <td id="${data.name}_prev_user">${prevUser}</td>
+      <td id="${data.name}_prev_start">${prevStart}</td>
+      <td id="${data.name}_prev_end">${prevEnd}</td>
     </tr>
     `;
   };
@@ -192,7 +202,7 @@ let reserve = (function() {
         let deviceLinks = Array();
         for (let i=0; i < testrig.links.length; i++) {
           console.log(Object.values(testrig.links[i]));
-          if (Object.values(testrig.links[i]).indexOf(device.longName) !== -1) {
+          if (Object.values(testrig.links[i]).indexOf(device.name) !== -1) {
             deviceLinks.push(testrig.links[i].nearDevice + "/" +
               testrig.links[i].nearInterface + "<->" +
               testrig.links[i].farDevice + "/" +
@@ -210,7 +220,7 @@ let reserve = (function() {
         }
         console.log(testerConnections);
         console.log(deviceLinks);
-        console.log("Add row for child device " + device.longName);
+        console.log("Add row for child device " + device.name);
         $('#testrigs tr:last').after(
           this.deviceTemplate(testrig.devices[i], false,
             testrigName = testrig.name, deviceLinks = deviceLinks,
@@ -245,7 +255,7 @@ let reserve = (function() {
       // Non-admin user is logged in so return the original state.
       return disabled;
     }
-  }
+  };
 
   reserve.updateCurrReservation = function(testrig, user, start, action,
                                            disabled) {
@@ -317,8 +327,7 @@ function formatDateTime(dateTimeISOStr) {
   if (dateTimeISOStr) {
     let dateTime = new Date(dateTimeISOStr);
     let time = dateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    let date = dateTime.toDateString();
-    parsed = date + ' ' + time;
+    parsed =  time + ' ' + dateTime.getDate() + '/' + dateTime.getMonth();
   }
   return parsed;
 }
