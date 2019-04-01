@@ -61,9 +61,12 @@ tl.on('connection', function(socket) {
   socket.on('disconnect', () => {
     // TODO also cleanup/stop any change streams - test this the null might
     // remove them already?
+    console.log('Disconnection from test logs namespace detected for ip ' +
+      socket.handshake.address);
     if (tlClient.timer) {
       clearInterval(tlClient.timer);
     }
+    tlClient.closeChangeStreams();
     tlClient = null;
     console.log('Disconnect detected for test logs namespace');
   });

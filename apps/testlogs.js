@@ -7,6 +7,13 @@ class TestLogClientConn {
     this.collatedLogs = [];
     this.collatedUpdates = [];
 
+    // Change streams
+    this.changeStreamLogs = null;
+    this.changeStreamVerify = null;
+    this.changeStreamResults = null;
+    this.changeStreamSession = null;
+    this.changeStreamTest = null;
+
     this.streamMsgsRxd = 0;
     this.msgsTxd = 0;
     this.lastIndexTxd = 0;  // The message index of the last message
@@ -117,9 +124,9 @@ class TestLogClientConn {
   testLogsLive(pipeline) {
     console.log("Starting logs change stream");
     // console.log(pipeline);
-    this.changeStream = this._db.collection('testlogs').watch(pipeline,
+    this.changeStreamLogs = this._db.collection('testlogs').watch(pipeline,
       {fullDocument: 'updateLookup'});
-    this.changeStream.on('change', (change) => {
+    this.changeStreamLogs.on('change', (change) => {
       if (change.operationType === 'insert') {
         // console.log('Messages received: ' + this.streamMsgsRxd +
         //             ', messages transmitted: ' + this.msgsTxd);
@@ -145,9 +152,9 @@ class TestLogClientConn {
 
   verificationsLive(pipeline) {
     console.log("Starting verifications change stream");
-    let changeStream = this._db.collection('verifications').watch(pipeline,
+    this.changeStreamVerify = this._db.collection('verifications').watch(pipeline,
       {fullDocument: 'updateLookup'});
-    changeStream.on('change', (change) => {
+    this.changeStreamVerify.on('change', (change) => {
       if (change.operationType === 'insert') {
         // console.log("VERIFICATION INSERTED");
         // console.log(change);
@@ -163,9 +170,9 @@ class TestLogClientConn {
 
   testsOutcomeLive(pipeline) {
     console.log("Starting test result outcome change stream");
-    let changeStream = this._db.collection('testresults').watch(pipeline,
+    this.changeStreamResults = this._db.collection('testresults').watch(pipeline,
       {fullDocument: 'updateLookup'});
-    changeStream.on('change', (change) => {
+    this.changeStreamResults.on('change', (change) => {
       if (change.operationType === 'insert') {
         let data = {};
         data._id = change.fullDocument._id;
@@ -204,9 +211,9 @@ class TestLogClientConn {
       {$match: {'fullDocument.sessionId': this.sessionId}},
       {$project: {operationType: 1, updateDescription: 1}}
     ];
-    let changeStream = this._db.collection('sessions').watch(pipeline,
+    this.changeStreamSession = this._db.collection('sessions').watch(pipeline,
       {fullDocument: 'updateLookup'});
-    changeStream.on('change', (change) => {
+    this.changeStreamSession.on('change', (change) => {
       if (change.operationType === 'update') {
         // console.log("SESSION PROGRESS UPDATE");
         let update = change.updateDescription.updatedFields;
@@ -298,6 +305,16 @@ class TestLogClientConn {
         console.log('Error');
         console.log(err);
       });
+  }
+
+  closeChangeStreams() {
+    let changeStreamKeys = ['Logs', 'Session', 'Results', 'Verify'];
+    for (let i = 0, n=changeStreamKeys.length; i<n; i++) {
+      let key = 'changeStream' + changeStreamKeys[i];
+      if (this[key]) {
+        console.log('Closing change stream ' + key);
+      }
+    }
   }
 }
 
