@@ -83,6 +83,7 @@ ses.on('connection', function(socket) {
     socket.handshake.address);
   let sesClient = new sessions.SessionDashClientConn(_db, socket);
   socket.on('disconnect', () =>  {
+    sesClient.closeChangeStreams();
     sesClient = null;
   });
   socket.on('error', (errData) => {

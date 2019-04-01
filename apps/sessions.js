@@ -3,6 +3,8 @@ class SessionDashClientConn {
   constructor(_db, socket) {
     this._db = _db;
     this.socket = socket;
+    this.changeStreamTrigger = null;
+    this.changeStreamSession = null;
 
     this.socket.on('init', (data) => {
       if (!Object.keys(data.params).length) {
@@ -37,9 +39,9 @@ class SessionDashClientConn {
     ];
     console.log("Starting change stream to track new trigger jobs " +
                 "(incremented build number)");
-    this.triggerChangeStream = this._db.collection('sessions').watch(pipeline,
+    this.changeStreamTrigger = this._db.collection('sessions').watch(pipeline,
       {fullDocument: 'updateLookup'});
-    this.triggerChangeStream.on('change', (change) => {
+    this.changeStreamTrigger.on('change', (change) => {
       if (change.operationType === 'insert') {
         console.log('session ' + change.fullDocument.sessionId +
           ' insert (trigger change stream)');
@@ -181,10 +183,9 @@ class SessionDashClientConn {
 
   sessionsLive(aggPipeline) {
     console.log("Starting sessions change stream");
-    this.changeStream = null;
-    this.changeStream = this._db.collection('sessions').watch(aggPipeline,
+    this.changeStreamSession = this._db.collection('sessions').watch(aggPipeline,
       {fullDocument: 'updateLookup'});
-    this.changeStream.on('change', (change) => {
+    this.changeStreamSession.on('change', (change) => {
       if (change.operationType === 'insert') {
         console.log('session ' + change.fullDocument.sessionId + ' insert (change stream)');
         this.socket.emit('session_insert', change.fullDocument);
@@ -310,6 +311,15 @@ class SessionDashClientConn {
     }
   }
 
+  closeChangeStreams() {
+    let changeStreamKeys = ['Trigger', 'Session'];
+    for (let i = 0, n=changeStreamKeys.length; i<n; i++) {
+      let key = 'changeStreamSession' + changeStreamKeys[i];
+      if (this[key]) {
+        console.log('Closing change stream ' + key);
+      }
+    }
+  }
 }
 
 module.exports.SessionDashClientConn = SessionDashClientConn;
