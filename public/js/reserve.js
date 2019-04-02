@@ -2,7 +2,6 @@ let reserve = (function() {
   let reserve = {
     socket: undefined,
     connected: false,
-    ip: undefined,
     userLongName: undefined,
     userAdmin: 'Jenkins Test'
   };
@@ -11,7 +10,6 @@ let reserve = (function() {
   };
 
   reserve.reserveReleaseTestRig = function(element) {
-    // console.log(action + ' test rig ' + testrig);
     let action = element.getAttribute("data-action");
     let testrig = element.getAttribute("data-testrig");
     let device = element.getAttribute("data-device");
@@ -30,36 +28,32 @@ let reserve = (function() {
     }
   };
 
-  reserve.deviceTemplate = function(data, singleDevice, testrigName="",
-                                    deviceLinks=[], testerLinks=[], testrigId) {  //FIXME
+  reserve.deviceTemplate = function(data, singleDevice, testrigName,
+                                    deviceLinks, testerLinks, testrigId,
+                                    legacyConfig) {
     let action = 'Reserve';
     let buttonStatus;
-    // let buttonClass;
     let prevUser = "";
-    // let prevIp = "";
     let prevStart = "";
     let prevEnd = "";
     let currentUser = "";
-    // let currentIp = "";
     let currentStart = "";
     let rowClass = "device";
     let links = "";
     let tester = "None";
+    let pwrSwitchPort = "None";
+    let hwType = data.hardware.type;
     if (Object.entries(data.reservations[0]).length !== 0) {
       if (data.reservations[0].hasOwnProperty('end')) {
         // No current user - index 0 is the previous user
         currentUser = '';
-        // currentIp = '';
         currentStart = '';
         action = 'Reserve';
         buttonStatus = '';
-        // buttonClass = "res-rel-button";
-        // prevIp = data.reservations[0].ip;
         prevUser = data.reservations[0].user;
         prevStart = formatDateTime(data.reservations[0].start);
         prevEnd = formatDateTime(data.reservations[0].end);
       } else {
-        console.log('Processing:::::: ' + data.name);
         // Test rig is reserved
         currentUser = data.reservations[0].user;
         currentStart = formatDateTime(data.reservations[0].start);
@@ -68,11 +62,6 @@ let reserve = (function() {
           ' Test') {
           buttonStatus = 'disabled';
         }
-        // if (currentUser === reserve.userLongName) {
-        //   action = 'Release';
-        // } else {
-        //   buttonStatus = 'disabled';
-        // }
         prevUser = data.reservations[1].user;
         prevStart = formatDateTime(data.reservations[1].start);
         prevEnd = formatDateTime(data.reservations[1].end);
@@ -84,7 +73,6 @@ let reserve = (function() {
     if ($('#loginButton').attr('data-signin') === '') {
       // Not logged in so disable ALL buttons
       buttonStatus = 'disabled';
-      // buttonClass = "disabled-button";
     }
 
     if (singleDevice) {
@@ -102,12 +90,10 @@ let reserve = (function() {
     }
     console.log(tester);
 
-    let pwrSwitchPort = "None";
     if (data.powerSwitch.ip !== "") {
       pwrSwitchPort = data.powerSwitch.ip + "/" + data.powerSwitch.outlet;
     }
 
-    let hwType = data.hardware.type;
     if (data.hardware.hasOwnProperty('revision')) {
       hwType += ' ' + data.hardware.revision;
     }
@@ -115,6 +101,7 @@ let reserve = (function() {
     return `
     <tr id="${data.name}_row" class=${rowClass}>
       <td id="${data.name}_testrig">${testrigName}</td>
+      <td id="${data.name}_json">${legacyConfig}</td>
       <td id="${data.name}_name">${data.name}</td>
       <td id="${data.name}_type">${hwType}</td>
       <td id="${data.name}_links">${links}</td>
@@ -137,7 +124,7 @@ let reserve = (function() {
     `;
   };
 
-  reserve.testRigTemplate = function(id, description) {
+  reserve.testRigTemplate = function(id, description, legacyConfig) {
     let buttonStatus = 'disabled';
     if (reserve.userLongName === 'Jenkins Test') {
       buttonStatus = '';
@@ -146,6 +133,7 @@ let reserve = (function() {
     return `
     <tr id="${id}_row" class="testrig">
       <td id="${id}_testrig">${description}</td>
+      <td id="${id}_json">${legacyConfig}</td>
       <td id="${id}_name"></td>
       <td id="${id}_type"></td>
       <td id="${id}_links"></td>
@@ -173,10 +161,8 @@ let reserve = (function() {
   };
 
   reserve.testRigUpdate = function(testrig) {
-    console.log(testrig);
     let numOfDevices = testrig.devices.length;
     if (numOfDevices === 1) {
-      console.log("Single device testrig");
       let testerConnections = Array();
       if (testrig.devices[0].hasOwnProperty("ethernetTester")) {
         for (let j=0; j < testrig.devices[0].ethernetTester.ports.length; j++) {
@@ -186,22 +172,26 @@ let reserve = (function() {
             + ' ' + testrig.devices[0].ethernetTester.ip);
         }
       }
-      console.log(testerConnections);
+      let legacyTestrig = '';
+      if (testrig.hasOwnProperty('legacyJson')) {
+        legacyTestrig = testrig.legacyJson;
+      }
       $('#testrigs tr:last').after(
-        this.deviceTemplate(testrig.devices[0], true,
-          testrigName=testrig.description, deviceLinks=[],
-          testerLinks=testerConnections, testrig._id)
+        this.deviceTemplate(testrig.devices[0], true, testrig.description, [],
+          testerConnections, testrig._id, legacyTestrig)
       );
     } else {
-      console.log("Add row for the parent testrig " + testrig.name);
+      let legacyTestrig = '';
+      if (testrig.hasOwnProperty('legacyJson')) {
+        legacyTestrig = testrig.legacyJson;
+      }
       $('#testrigs tr:last').after(
-        this.testRigTemplate(testrig._id, testrig.description)
+        this.testRigTemplate(testrig._id, testrig.description, legacyTestrig)
       );
       for (let i=0; i < numOfDevices; i++) {
         let device = testrig.devices[i];
         let deviceLinks = Array();
         for (let i=0; i < testrig.links.length; i++) {
-          console.log(Object.values(testrig.links[i]));
           if (Object.values(testrig.links[i]).indexOf(device.name) !== -1) {
             deviceLinks.push(testrig.links[i].nearDevice + "/" +
               testrig.links[i].nearInterface + "<->" +
@@ -218,13 +208,13 @@ let reserve = (function() {
               + ' ' + testrig.devices[i].ethernetTester.ip);
           }
         }
-        console.log(testerConnections);
-        console.log(deviceLinks);
-        console.log("Add row for child device " + device.name);
+        let legacyDevice = '';
+        if (device.hasOwnProperty('legacyJson')) {
+          legacyDevice = device.legacyJson;
+        }
         $('#testrigs tr:last').after(
-          this.deviceTemplate(testrig.devices[i], false,
-            testrigName = testrig.name, deviceLinks = deviceLinks,
-            testerConnections = testerConnections, testrig._id)
+          this.deviceTemplate(testrig.devices[i], false, testrig.name,
+            deviceLinks, testerConnections, testrig._id, legacyDevice)
         );
         // TODO if device is reserved by current user enable release all
         // TODO if device is free enable reserve all
@@ -243,8 +233,6 @@ let reserve = (function() {
   };
 
   reserve.checkButtonState = function(disabled) {
-    console.log("Current logged in user: " + reserve.userLongName);
-    console.log("Admin user: " + reserve.userAdmin);
     if (reserve.userLongName === reserve.userAdmin) {
       // Admin user buttons are always enabled.
       return false;
@@ -278,9 +266,6 @@ let reserve = (function() {
   };
 
   reserve.signIn = function() {
-    console.log('Signing In');
-    console.log('Username: ' + $('#user').val());
-    console.log('Password: ' + $('#pass').val());
     reserve.socket.emit('login', {
       user: $('#user').val(),
       pass: $('#pass').val()
@@ -290,13 +275,11 @@ let reserve = (function() {
   reserve.signInOut = function() {
     // Open sign in dialog or sign out
     let signIn = $('#loginButton').attr('data-signin');
-    console.log('Button state is: ' + signIn);
     if (signIn === '') {
       // Display the login modal dialog - signIn fired from button in modal
       $('#loginModal').show();
     } else {  // (typeof signIn !== typeof undefined && signIn !== false)
       // Sign out
-      console.log('Signing Out');
       // Remove the username and password from the login dialog
       $('#user').val('');
       $('#pass').val('');
@@ -336,9 +319,7 @@ $(window).ready(function() {
   reserve.resetSocket();
   reserve.socket.on('connect', function() {
     console.log("Reservation client connected");
-    if (reserve.connected) {
-      console.log("Don't re-initialize page");
-    } else {
+    if (!reserve.connected) {
       reserve.connected = true;
       reserve.socket.emit('init');
     }
@@ -353,9 +334,6 @@ $(window).ready(function() {
   });
 
   reserve.socket.on('device reserved', (data) => {
-    console.log('Device ' + data.device + ' (in test rig ' + data.testrig +
-      ') reserved by ' + data.user + ' (current client: ' + reserve.userLongName + ')');
-    console.log(data);
     let action = 'Reserve';
     let disable = false;
     if (data.user === reserve.userLongName) {
@@ -378,10 +356,6 @@ $(window).ready(function() {
   });
 
   reserve.socket.on('testrig reserved', (data) => {
-    console.log('Test rig  ' + data.testrig + ' reserved by ' + data.user +
-      ' (current client: ' + reserve.userLongName + ')');
-
-    console.log(data);
     let action = 'Reserve';
     let disable = false;
     if (data.user === reserve.userLongName) {
@@ -403,13 +377,9 @@ $(window).ready(function() {
   });
 
   reserve.socket.on('released', (data) => {
-    console.log(data);
     if (data.allAvailable) {
-      console.log('Testrig ' + data.testrig + ' released all devices');
       $('#' + data.testrig + '_release').prop('disabled',
         reserve.checkButtonState(true));
-    } else {
-      console.log('Testrig ' + data.testrig + ' released some devices');
     }
     // Enable the reserve all button for the associated testrig as at least
     // 1 device can be reserved.
@@ -421,7 +391,6 @@ $(window).ready(function() {
     for (let i=0; i<data.devices.length; i++) {
       // update all devices (with end time) - if in reserved state
       // move current user and since to prev user and from + add end time to to
-      console.log('Updating device ' + data.devices[i].name + '');
       let prevUser = $('#' + data.devices[i].name + '_user').text();
       let prevStart = $('#' + data.devices[i].name + '_start').text();
       if (prevUser !== '') {
@@ -439,7 +408,6 @@ $(window).ready(function() {
   });
 
   reserve.socket.on('login auth', (data) => {
-    console.log(data);
     if (data.success === true) {
       reserve.userLongName = data.longName;
       $('#loginButton').text(data.longName + ' Sign Out');
