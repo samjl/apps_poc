@@ -388,6 +388,13 @@ $(window).ready(function() {
         reserve.checkButtonState(false));
     }
 
+    // Disable the release all button for the associated testrig if the
+    // user no longer has any active device reservations.
+    if (data.userNoReservations) {
+      $('#' + data.testrig + '_release').prop('disabled',
+        reserve.checkButtonState(true));
+    }
+
     for (let i=0; i<data.devices.length; i++) {
       // update all devices (with end time) - if in reserved state
       // move current user and since to prev user and from + add end time to to

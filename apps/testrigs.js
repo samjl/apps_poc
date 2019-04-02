@@ -111,12 +111,18 @@ class ReserveClientConn {
           result.modifiedCount + ' modifications)');
         // Emit all testrig devices that have been released
         let releasedDevices = Array();
+        let userNoReservations = true;
         for (let i=0; i<result.value.devices.length; i++) {
           if (result.value.devices[i].reservations[0].hasOwnProperty('end')) {
             releasedDevices.push({
               'name': result.value.devices[i].name,
               'endTime': result.value.devices[i].reservations[0].end
             })
+          } else {
+            if (result.value.devices[i].reservations[0].user === username) {
+              // Flag that the user still has devices reserved.
+              userNoReservations = false;
+            }
           }
         }
         console.log(releasedDevices);
@@ -125,6 +131,7 @@ class ReserveClientConn {
         this.namespace.emit('released', {
           testrig: testrigId,
           allAvailable: allDevicesAvailable,
+          userNoReservations: userNoReservations,
           devices: releasedDevices
         });
       } else {
