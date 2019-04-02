@@ -12,7 +12,6 @@ class TestLogClientConn {
     this.changeStreamVerify = null;
     this.changeStreamResults = null;
     this.changeStreamSession = null;
-    this.changeStreamTest = null;
 
     this.streamMsgsRxd = 0;
     this.msgsTxd = 0;

@@ -314,7 +314,7 @@ class SessionDashClientConn {
   closeChangeStreams() {
     let changeStreamKeys = ['Trigger', 'Session'];
     for (let i = 0, n=changeStreamKeys.length; i<n; i++) {
-      let key = 'changeStreamSession' + changeStreamKeys[i];
+      let key = 'changeStream' + changeStreamKeys[i];
       if (this[key]) {
         console.log('Closing change stream ' + key);
       }
