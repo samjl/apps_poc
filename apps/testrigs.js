@@ -7,6 +7,8 @@ class ReserveClientConn {
     this.socket = socket;
     this.namespace = namespace;
 
+    this.userLongName = '';  // LDAP long name
+    this.user = '';  // LDAP short name
     this.adminUser = 'Jenkins Test';
 
     this.socket.on('init', () => {
@@ -162,7 +164,12 @@ class ReserveClientConn {
     bulk.find(match).updateOne(
       {'$push':
         {'devices.$.reservations':
-          {'$each': [{'user': username, 'ip': ip, 'start': startTime}], '$position': 0}
+          {'$each': [{
+            'user': username,
+            'shortName': this.user,
+            'ip': ip,
+            'start': startTime}],
+          '$position': 0}
         }
       }
     );
@@ -239,7 +246,12 @@ class ReserveClientConn {
       let reservePath = 'devices.' + deviceIndices[j] + '.reservations';
       let update = {'$push': {}};
       update['$push'][reservePath] = {
-        '$each': [{'user': username, 'ip': ip, 'start': startTime}],
+        '$each': [{
+          'user': username,
+          'shortName': this.user,
+          'ip': ip,
+          'start': startTime
+        }],
         '$position': 0
       };
       let remove = {'$pop': {}};
@@ -303,6 +315,8 @@ class ReserveClientConn {
         let userBindSuccess = await ldapUser.bind(password);
         if (userBindSuccess) {
           console.log('User authenticated successfully');
+          this.userLongName = longname;
+          this.user = username;
           this.socket.emit('login auth', {
             success: true,
             user: username,
