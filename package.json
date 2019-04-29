@@ -1,12 +1,12 @@
 {
   "name": "ci_apps",
-  "version": "0.17.4",
+  "version": "0.18.0",
   "description": "node web apps for CI testing",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Sam Lea <sam.lea@aviatnet.com>",
   "license": "ISC",
   "dependencies": {
     "clusterize.js": "^0.18.1",
@@ -16,7 +16,7 @@
     "ldapjs": "^1.0.2",
     "mongodb": "^3.1.6",
     "pm2": "^3.4.1",
-    "socket.io": "^2.1.1",
+    "socket.io": "1.7.2",
     "utf8": "^3.0.0"
   }
 }

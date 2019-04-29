@@ -8,7 +8,7 @@ class ReserveClientConn {
     this.namespace = namespace;
 
     this.userLongName = '';  // LDAP long name
-    this.user = '';  // LDAP short name
+    this.userShortName = '';  // LDAP short name
     this.adminUser = 'Jenkins Test';
 
     this.socket.on('init', () => {
@@ -24,7 +24,7 @@ class ReserveClientConn {
           msg: 'No password supplied'
         });
       } else {
-        this.authenticate(data.user, data.pass);
+        this.authenticate(data.userShortName, data.pass);
       }
     });
     this.socket.on('reserve', async (data) => {
@@ -34,20 +34,19 @@ class ReserveClientConn {
         // If testrig is unset then reserve all devices in the testrig.
         // Initial find in order to check if testrig is already reserved.
         let testrig = await this.findTestrig(data.testrig);
-        this.reserveTestrig(testrig, data.user);
+        this.reserveTestrig(testrig, data.userLongName);
       } else {
         // Reserve the specified device of the testrig.
         // Initial find in order to check if device is already reserved.
         let device = await this.findDevice(data.testrig, data.device);
-        this.reserveDevice(device, data.device, data.user, data.testrig)
+        this.reserveDevice(device, data.device, data.userLongName, data.testrig)
       }
     });
     this.socket.on('release', async (data) => {
       console.log("Release requested, data:");
       console.log(data);
-      this.release(data.testrig, data.device, data.user);
+      this.release(data.testrig, data.device, data.userLongName);
     });
-
   }
 
   async findTestrig(testrig) {
@@ -77,7 +76,7 @@ class ReserveClientConn {
     return response;
   }
 
-  release(testrigId, deviceName, username) {
+  release(testrigId, deviceName, clientLongName) {
     let match = {'_id': new ObjectId(testrigId)};
     let end = new Date(Date.now()).toISOString();
     let update = {'$set': {"devices.$[elem].reservations.0.end": end}};
@@ -85,13 +84,13 @@ class ReserveClientConn {
       'arrayFilters': [{'elem.reservations.0.end': {$exists: false}}],
       'returnOriginal': false
     };
-    if (username === this.adminUser) {
+    if (clientLongName === this.adminUser) {
       let ip = this.socket.handshake.address;
       console.log('ADMIN RELEASING DEVICE ' + deviceName + ' TESTRIG ' +
         testrigId + ' (from IP ' + ip + ')');
     } else {
       // Add username to array filters - only release users own reservations.
-      options.arrayFilters[0]['elem.reservations.0.user'] = username;
+      options.arrayFilters[0]['elem.reservations.0.userLongName'] = clientLongName;
     }
     if (deviceName !== '') {
       console.log('Releasing device ' + deviceName + ', a member of testrig '
@@ -121,7 +120,7 @@ class ReserveClientConn {
               'endTime': result.value.devices[i].reservations[0].end
             })
           } else {
-            if (result.value.devices[i].reservations[0].user === username) {
+            if (result.value.devices[i].reservations[0].userLongName === clientLongName) {
               // Flag that the user still has devices reserved.
               userNoReservations = false;
             }
@@ -137,7 +136,7 @@ class ReserveClientConn {
           devices: releasedDevices
         });
       } else {
-        console.log('User ' + username + ' failed to release test rig ' +
+        console.log('User ' + clientLongName + ' failed to release test rig ' +
           testrigId + ' with error:');
         console.log(err);
       }
@@ -145,16 +144,16 @@ class ReserveClientConn {
     });
   }
 
-  reserveDevice(deviceDoc, deviceName, username, testrigName) {
+  reserveDevice(deviceDoc, deviceName, clientLongName, testrigName) {
     console.log('Ensure the device is free');
     if (!deviceDoc.devices[0].reservations[0].hasOwnProperty('end') &&
-        deviceDoc.devices[0].reservations[0].hasOwnProperty('user')) {
+        deviceDoc.devices[0].reservations[0].hasOwnProperty('userLongName')) {
       console.log(deviceDoc.devices[0].name + " is already reserved");
       return;
     }
     let ip = this.socket.handshake.address;
     console.log('Reserve device ' + deviceName + ' (from testrig ' +
-      deviceDoc.name + ') for user ' + username + ' with IP ' + ip);
+      deviceDoc.name + ') for user ' + clientLongName + ' with IP ' + ip);
     let bulk = this._db.collection('testrigs').initializeOrderedBulkOp();
     let startTime = new Date(Date.now()).toISOString();
     let match = {
@@ -165,8 +164,8 @@ class ReserveClientConn {
       {'$push':
         {'devices.$.reservations':
           {'$each': [{
-            'user': username,
-            'shortName': this.user,
+            'userLongName': clientLongName,
+            'userShortName': this.userShortName,
             'ip': ip,
             'start': startTime}],
           '$position': 0}
@@ -199,13 +198,13 @@ class ReserveClientConn {
           testrig: deviceDoc._id,
           allReserved: allReserved,
           device: deviceName,
-          user: username,
+          userLongName: clientLongName,
           ip: ip,
           start: startTime,
           prevRes: deviceDoc.devices[0].reservations[0]
         });
       } else {
-        console.log('User ' + username + ' failed to reserve device ' +
+        console.log('User ' + clientLongName + ' failed to reserve device ' +
           deviceName + ' with error:');
         console.log(err);
         // TODO emit
@@ -214,15 +213,15 @@ class ReserveClientConn {
   }
 
 
-  reserveTestrig(testrigDoc, username) {
+  reserveTestrig(testrigDoc, clientLongName) {
     // Reserve as many devices in a testrig as possible.
     // Get all devices in the testrig that are free.
     let devices = Array();
     let deviceIndices = Array();
     for (let i=0; i<testrigDoc.devices.length; i++) {
       if (!testrigDoc.devices[i].reservations[0].hasOwnProperty('end') &&
-          testrigDoc.devices[i].reservations[0].hasOwnProperty('user') &&
-          testrigDoc.devices[i].reservations[0].user !== username) {
+          testrigDoc.devices[i].reservations[0].hasOwnProperty('userLongName') &&
+          testrigDoc.devices[i].reservations[0].userLongName !== clientLongName) {
         console.log('Testrig ' + testrigDoc.devices[i].name +
           ' is already reserved');
         // return;
@@ -235,7 +234,7 @@ class ReserveClientConn {
       }
     }
     let ip = this.socket.handshake.address;
-    console.log('Reserve all the devices in the testrig for user ' + username +
+    console.log('Reserve all the devices in the testrig for user ' + clientLongName +
                 ' with IP ' + ip);
     // TODO this can be updated to use a single update using arrayFilters
     //  when they are implemented for bulk operations
@@ -247,8 +246,8 @@ class ReserveClientConn {
       let update = {'$push': {}};
       update['$push'][reservePath] = {
         '$each': [{
-          'user': username,
-          'shortName': this.user,
+          'userLongName': clientLongName,
+          'userShortName': this.userShortName,
           'ip': ip,
           'start': startTime
         }],
@@ -270,12 +269,12 @@ class ReserveClientConn {
         this.namespace.emit('testrig reserved', {
           testrig: testrigDoc._id,
           devices: devices,
-          user: username,
+          userLongName: clientLongName,
           ip: ip,
           start: startTime,
         });
       } else {
-        console.log('User ' + username + ' failed to reserve test rig ' +
+        console.log('User ' + clientLongName + ' failed to reserve test rig ' +
           testrigDoc.name + ' with error:');
         console.log(err);
         // TODO emit
@@ -299,28 +298,28 @@ class ReserveClientConn {
       });
   }
 
-  async authenticate(username, password) {
+  async authenticate(clientShortName, password) {
     let ldapAdmin = new LdapClient('NZ Jenkins');
     // TODO encrypt the admin credentials
     let bindSuccess = await ldapAdmin.bind('NZJ1209$$');
     if (bindSuccess) {
-      let user = await ldapAdmin.findUser(username);
+      let user = await ldapAdmin.findUser(clientShortName);
       console.log('Found user:');
       console.log(user);
       if (user.length === 1) {
-        let longname = user[0].name;  // FIXME save this at this end and
+        let longName = user[0].name;  // FIXME save this at this end and
         // don't use the username from client to reserve/release - or use both?
         // TODO on client signOut clear this name
-        let ldapUser = new LdapClient(longname);
+        let ldapUser = new LdapClient(longName);
         let userBindSuccess = await ldapUser.bind(password);
         if (userBindSuccess) {
           console.log('User authenticated successfully');
-          this.userLongName = longname;
-          this.user = username;
+          this.userLongName = longName;
+          this.userShortName = clientShortName;
           this.socket.emit('login auth', {
             success: true,
-            user: username,
-            longName: longname
+            userShortName: clientShortName,
+            userLongName: longName
           });
           ldapUser.unbind();
         } else {

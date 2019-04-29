@@ -17,7 +17,7 @@ let reserve = (function() {
       + device);
     if (reserve.userLongName) {
       reserve.socket.emit(action.toLowerCase(), {
-        user: reserve.userLongName,
+        userLongName: reserve.userLongName,
         testrig: testrig,
         device: device
       });
@@ -50,19 +50,19 @@ let reserve = (function() {
         currentStart = '';
         action = 'Reserve';
         buttonStatus = '';
-        prevUser = data.reservations[0].user;
+        prevUser = data.reservations[0].userLongName;
         prevStart = formatDateTime(data.reservations[0].start);
         prevEnd = formatDateTime(data.reservations[0].end);
       } else {
         // Test rig is reserved
-        currentUser = data.reservations[0].user;
+        currentUser = data.reservations[0].userLongName;
         currentStart = formatDateTime(data.reservations[0].start);
         action = 'Release';
         if (reserve.userLongName !== currentUser && reserve.userLongName !== 'Jenkins' +
           ' Test') {
           buttonStatus = 'disabled';
         }
-        prevUser = data.reservations[1].user;
+        prevUser = data.reservations[1].userLongName;
         prevStart = formatDateTime(data.reservations[1].start);
         prevEnd = formatDateTime(data.reservations[1].end);
       }
@@ -219,7 +219,7 @@ let reserve = (function() {
         // TODO if device is reserved by current user enable release all
         // TODO if device is free enable reserve all
         if (reserve.userLongName !== undefined) {
-          if (testrig.devices[i].reservations[0].user === reserve.userLongName &&
+          if (testrig.devices[i].reservations[0].userLongName === reserve.userLongName &&
               !testrig.devices[i].reservations[0].hasOwnProperty('end')) {
             $('#' + testrig._id + '_release').prop('disabled',
               reserve.checkButtonState(false));
@@ -267,7 +267,7 @@ let reserve = (function() {
 
   reserve.signIn = function() {
     reserve.socket.emit('login', {
-      user: $('#user').val(),
+      userShortName: $('#user').val(),
       pass: $('#pass').val()
     });
   };
@@ -336,7 +336,7 @@ $(window).ready(function() {
   reserve.socket.on('device reserved', (data) => {
     let action = 'Reserve';
     let disable = false;
-    if (data.user === reserve.userLongName) {
+    if (data.userLongName === reserve.userLongName) {
       // This client has the reservation
       action = 'Release';
       $('#' + data.testrig + '_release').prop('disabled',
@@ -351,14 +351,14 @@ $(window).ready(function() {
         reserve.checkButtonState(true));
     }
 
-    reserve.updateCurrReservation(data.device, data.user, data.start, action, disable);
+    reserve.updateCurrReservation(data.device, data.userLongName, data.start, action, disable);
     reserve.updatePrevReservation(data.device, data.prevRes.user, data.prevRes.start, data.prevRes.end);
   });
 
   reserve.socket.on('testrig reserved', (data) => {
     let action = 'Reserve';
     let disable = false;
-    if (data.user === reserve.userLongName) {
+    if (data.userLongName === reserve.userLongName) {
       // This client has the reservation
       action = 'Release';
       $('#' + data.testrig + '_release').prop('disabled',
@@ -370,8 +370,8 @@ $(window).ready(function() {
       reserve.checkButtonState(true));
 
     for (let i=0; i<data.devices.length; i++) {
-      reserve.updateCurrReservation(data.devices[i].name, data.user, data.start, action, disable);
-      reserve.updatePrevReservation(data.devices[i].name, data.devices[i].prevRes.user, data.devices[i].prevRes.start, data.devices[i].prevRes.end);
+      reserve.updateCurrReservation(data.devices[i].name, data.userLongName, data.start, action, disable);
+      reserve.updatePrevReservation(data.devices[i].name, data.devices[i].prevRes.userLongName, data.devices[i].prevRes.start, data.devices[i].prevRes.end);
 
     }
   });
@@ -416,8 +416,8 @@ $(window).ready(function() {
 
   reserve.socket.on('login auth', (data) => {
     if (data.success === true) {
-      reserve.userLongName = data.longName;
-      $('#loginButton').text(data.longName + ' Sign Out');
+      reserve.userLongName = data.userLongName;
+      $('#loginButton').text(data.userLongName + ' Sign Out');
       $('#loginButton').removeAttr('data-signin');
       // Remove the testrig table data rows and re-initialize.
       $('table tr').not(':nth-child(1)').remove();
