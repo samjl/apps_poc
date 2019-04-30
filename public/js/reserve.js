@@ -90,7 +90,7 @@ let reserve = (function() {
     }
     console.log(tester);
 
-    if (data.powerSwitch.ip !== "") {
+    if (data.powerSwitch.ip !== null) {
       pwrSwitchPort = data.powerSwitch.ip + "/" + data.powerSwitch.outlet;
     }
 
@@ -167,8 +167,8 @@ let reserve = (function() {
       if (testrig.devices[0].hasOwnProperty("ethernetTester")) {
         for (let j=0; j < testrig.devices[0].ethernetTester.ports.length; j++) {
           let connection = testrig.devices[0].ethernetTester.ports[j];
-          testerConnections.push(connection.deviceInterface + '<->' +
-            connection.testerInterface + ' ' + testrig.devices[0].ethernetTester.type
+          testerConnections.push(connection.device + '<->' +
+            connection.tester + ' ' + testrig.devices[0].ethernetTester.type
             + ' ' + testrig.devices[0].ethernetTester.ip);
         }
       }
@@ -192,19 +192,24 @@ let reserve = (function() {
         let device = testrig.devices[i];
         let deviceLinks = Array();
         for (let i=0; i < testrig.links.length; i++) {
-          if (Object.values(testrig.links[i]).indexOf(device.name) !== -1) {
-            deviceLinks.push(testrig.links[i].nearDevice + "/" +
-              testrig.links[i].nearInterface + "<->" +
-              testrig.links[i].farDevice + "/" +
-              testrig.links[i].farInterface);
+          let link = Array();
+          let deviceLink = false;
+          for (let deviceName in testrig.links[i]) {
+            link.push(deviceName + '/' + testrig.links[i][deviceName]);
+            if (deviceName === device.name) {
+              deviceLink = true;
+            }
+          }
+          if (deviceLink) {
+            deviceLinks.push(link[0] + '<->' + link[1]);
           }
         }
         let testerConnections = Array();
         if (testrig.devices[i].hasOwnProperty("ethernetTester")) {
           for (let j=0; j < testrig.devices[i].ethernetTester.ports.length; j++) {
             let connection = testrig.devices[i].ethernetTester.ports[j];
-            testerConnections.push(connection.deviceInterface + '<->' +
-              connection.testerInterface + ' ' + testrig.devices[i].ethernetTester.type
+            testerConnections.push(connection.device + '<->' +
+              connection.tester + ' ' + testrig.devices[i].ethernetTester.type
               + ' ' + testrig.devices[i].ethernetTester.ip);
           }
         }
