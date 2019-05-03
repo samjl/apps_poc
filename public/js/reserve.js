@@ -315,7 +315,7 @@ function formatDateTime(dateTimeISOStr) {
   if (dateTimeISOStr) {
     let dateTime = new Date(dateTimeISOStr);
     let time = dateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    parsed =  time + ' ' + dateTime.getDate() + '/' + dateTime.getMonth();
+    parsed =  time + ' ' + dateTime.getDate() + '/' + (dateTime.getMonth() + 1);
   }
   return parsed;
 }
