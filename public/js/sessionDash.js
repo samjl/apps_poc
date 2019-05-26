@@ -36,7 +36,7 @@ let sessionDash = (function() {
       <p style="display: inline;font-weight: bold">collected: ${summary.collected}</p>
       <p style="display: inline;font-weight: bold">complete: ${summary.complete}</p>`;
     for (let outcome in summary.outcomes) {
-      let percent = calc_percent(summary.outcomes[outcome], summary.collected);
+      let percent = calc_percent(summary.outcomes[outcome], summary.complete);
       outcomes += `
         <p style="display: inline;font-weight: bold;color: ${outcomeColour(outcome)}">
           ${outcome}: ${summary.outcomes[outcome]} (${percent})%
