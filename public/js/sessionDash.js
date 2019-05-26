@@ -493,11 +493,18 @@ function appendToRunOrder(index, data, sessionId) {
   let url = new URL(window.location.href);
   url.pathname = 'test';
   url.search = '?session=' + sessionId + '&module=' + data.moduleName;
+  let failure = "";
+  if (data.hasOwnProperty('excSource')) {
+    let sourceSplit = data.excSource.split("/");
+    let moduleFuncLine = sourceSplit[sourceSplit.length - 1];
+    failure = data.excMsg + ' [' + moduleFuncLine + ']';
+  }
   $('#testsTable' + sessionId + ' tr:last').after(`
   <tr>
     <td><a href="${url.href}">${data.moduleName}</a></td>
     <td>${data.testName}</td>
     <td id="outcome_${sessionId}_${index}" style="font-weight: ${fontWeight}; color: ${fontColour}">${data.outcome}</td>
+    <td>${failure}</td>
   </tr>`);
 }
 
@@ -561,6 +568,7 @@ function sessionTemplate(data) {
         <th style="width: 350px">Module</th>
         <th style="width: 350px">Test Function</th>
         <th style="width: 350px">Outcome (Bold when complete)</th>
+        <th style="width: 700px">Failure</th>
       </tr>
     </table>
   </div>
