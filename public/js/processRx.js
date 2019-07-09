@@ -295,166 +295,15 @@ $(window).ready(function(){
 
   $(document).on("click", ".containerFold", function() {
     let clickedMsgIndex = parseInt(this.id.slice(3, -4));
-    // Update the parent message
     console.log("clicked message: " + clickedMsgIndex);
     let allMsgsPosition = clickedMsgIndex-allMsgs[0].index;
     console.log("allMsgs array position: " + allMsgsPosition);
     console.log("number of children to process: " + allMsgs[allMsgsPosition].numOfChildren);
-    let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex);
 
-    // Traverse to the node of the clicked element
-    console.log('Parents of clicked element:' + allMsgs[allMsgsPosition].parentIndices);
-    console.log('Clicked element log level = ' + allMsgs[allMsgsPosition].level);
-    let direct = allMsgs[allMsgsPosition].level - minLevel;
-    console.log('Direct parent is at index ' + direct);
-    let parentIndices = allMsgs[allMsgsPosition].parentIndices.slice(0, direct);
-    console.log('Parent indices that define path to clicked node: ' + parentIndices);
-    let clickedNode = iterateToNode(allMsgs[allMsgsPosition].index, parentIndices);
-    // Find all the children (that are themselves parents)
-    let children = new Array();
-    findChildren(clickedNode, children);
-    console.log('Found ' + children.length + ' children that are' +
-      ' themselves parents');
-    console.log(children);
-    // Iterate through the children
-    let startBlockIndex = allMsgs[allMsgsPosition].index + 1;
-
-    // TODO Quick check for if all children are folded/unfolded
     if (allMsgs[allMsgsPosition].foldState) {
-      let toInsertIndices = new Array();
-      let toInsertHtml = new Array();
-      let lengthOfBlock;
-      // Set the state of the clicked element to unfolded '+'
-      setParentUnfolded(allMsgsPosition);
-      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
-
-      if (children.length === 0) {
-        // Clicked element has no children that are themselves parents
-        lengthOfBlock = allMsgs[allMsgsPosition].numOfChildren;
-        for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
-          toInsertIndices.push(x);
-          toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
-        }
-        startBlockIndex = clickedMsgIndex + allMsgs[allMsgsPosition].numOfChildren + 1;
-      } else {
-        let prevFoldState = false;
-        let prevLevel = 0;
-        for (let i=0; i<children.length; i++) {
-          if (prevFoldState && allMsgs[children[i].index - allMsgs[0].index].level > prevLevel) {
-            if (i < children.length - 1 && children[i + 1].level > children[i].level) {
-              lengthOfBlock = children[i + 1].index - children[i].index;
-            } else {
-              lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
-            }
-            startBlockIndex = children[i].index + lengthOfBlock + 1;
-            continue;
-          }
-          lengthOfBlock = children[i].index - startBlockIndex + 1;
-          // console.log('Unfold block from ' + startBlockIndex + ' of length '
-          //   + lengthOfBlock);
-          for (let x=startBlockIndex; x<startBlockIndex+lengthOfBlock; x++) {
-            toInsertIndices.push(x);
-            toInsertHtml.push(getMarkup(allMsgs[x-allMsgs[0].index]));
-          }
-
-          // child block if from its index+1 to next child index (inclusive)
-          let childMsgIndex= children[i].index - allMsgs[0].index;
-          let childFoldState = allMsgs[childMsgIndex].foldState;
-          // console.log('Child (index ' + children[i].index + ') fold state is ' +
-          //   childFoldState);
-
-          if (i < children.length - 1 && children[i + 1].level > children[i].level) {
-            lengthOfBlock = children[i + 1].index - children[i].index;
-          } else {
-            lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
-          }
-          // console.log('Child (index ' + children[i].index + ') block from ' +
-          //   (children[i].index + 1) + ' of length ' + lengthOfBlock);
-          startBlockIndex = children[i].index + 1;
-          if (!childFoldState) {
-            for (let x = startBlockIndex; x < startBlockIndex + lengthOfBlock; x++) {
-              toInsertIndices.push(x);
-              toInsertHtml.push(getMarkup(allMsgs[x - allMsgs[0].index]));
-            }
-          }
-          prevFoldState = childFoldState;
-          prevLevel = allMsgs[children[i].index - allMsgs[0].index].level;
-          startBlockIndex = children[i].index + lengthOfBlock + 1;
-        }
-      }
-      let remainingMsgs = allMsgs[allMsgsPosition].numOfChildren - (startBlockIndex - clickedMsgIndex) + 1;
-      if (remainingMsgs > 0) {
-        for (let x = startBlockIndex; x < startBlockIndex + remainingMsgs; x++) {
-          toInsertIndices.push(x);
-          toInsertHtml.push(getMarkup(allMsgs[x - allMsgs[0].index]));
-        }
-      }
-
-      // console.log('Insert messages with indices ' + toInsertIndices);
-      activeHtml.splice(activeIndex+1, 0, ...toInsertHtml);
-      activeMsgIndices.splice(activeIndex+1, 0, ...toInsertIndices);
+      unfold(clickedMsgIndex);
     } else {
-      let toRemoveCounter = 0;
-      let lengthOfBlock;
-      // Set the state of the clicked element to unfolded '+'
-      setParentFolded(allMsgsPosition);
-      activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
-
-      if (children.length === 0) {
-        // Clicked element has no children that are themselves parents
-        toRemoveCounter = allMsgs[allMsgsPosition].numOfChildren;
-        startBlockIndex = clickedMsgIndex + allMsgs[allMsgsPosition].numOfChildren + 1;
-      } else {
-        let prevFoldState = false;
-        let prevLevel = 0;
-        for (let i=0; i<children.length; i++) {
-          if (prevFoldState && allMsgs[children[i].index - allMsgs[0].index].level > prevLevel) {
-            if (i < children.length - 1 && children[i + 1].level > children[i].level) {
-              lengthOfBlock = children[i + 1].index - children[i].index;
-            } else {
-              lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
-            }
-            startBlockIndex = children[i].index + lengthOfBlock + 1;
-            continue;
-          }
-
-          lengthOfBlock = children[i].index - startBlockIndex + 1;
-          // console.log('Fold block from ' + startBlockIndex + ' of length '
-          //   + lengthOfBlock);
-          toRemoveCounter += lengthOfBlock;
-
-          // child block if from its index+1 to next child index (inclusive)
-          let childMsgIndex= children[i].index - allMsgs[0].index;
-          let childFoldState = allMsgs[childMsgIndex].foldState;
-          // console.log('Child (index ' + children[i].index + ') fold state is ' +
-          //   childFoldState);
-
-          if (i < children.length - 1 && children[i + 1].level > children[i].level) {
-            lengthOfBlock = children[i + 1].index - children[i].index;
-          } else {
-            lengthOfBlock = allMsgs[children[i].index - allMsgs[0].index].numOfChildren;
-          }
-          // console.log('Child (index ' + children[i].index + ') block from ' +
-          //   (children[i].index + 1) + ' of length ' + lengthOfBlock);
-          startBlockIndex = children[i].index + 1;
-          if (!childFoldState) {
-            // console.log('Fold block from ' + startBlockIndex + ' of length '
-            // + lengthOfBlock);
-            toRemoveCounter += lengthOfBlock;
-          }
-          prevFoldState = childFoldState;
-          prevLevel = allMsgs[children[i].index - allMsgs[0].index].level;
-          startBlockIndex = children[i].index + lengthOfBlock + 1;
-        }
-      }
-      let remainingMsgs = allMsgs[allMsgsPosition].numOfChildren - (startBlockIndex - clickedMsgIndex) + 1;
-      if (remainingMsgs > 0) {
-        toRemoveCounter += remainingMsgs;
-      }
-
-      // console.log('Remove the next ' + toRemoveCounter + ' messages');
-      activeHtml.splice(activeIndex+1, toRemoveCounter);
-      activeMsgIndices.splice(activeIndex+1, toRemoveCounter);
+      fold(clickedMsgIndex);
     }
     clusterize.update(activeHtml);
     clusterize.refresh(true);
@@ -984,27 +833,98 @@ function nodeExists(index, parentIndices) {
 
 }
 
-/**
- * Find all the children that are themselves parent nodes for a given
- * message node (MsgNode). This function is recursive as it has to iterate
- * through child and sibling node branches i.e. all of the tree beneath the
- * node in the request.
- * @param {MsgNode} node - The parent node.
- * @param {Array} children - An outer scope array to add the children to.
- */
-function findChildren(node, children) {
-  console.log('Find children for node with index ' + node.index);
-  let currentNode = node;
-  if (currentNode.firstChild === null) {
-    return;
+function unfold(clickedMsgIndex) {
+  let allMsgsPosition = clickedMsgIndex-allMsgs[0].index;
+  let direct = allMsgs[allMsgsPosition].level - minLevel;
+  let parentIndices = allMsgs[allMsgsPosition].parentIndices.slice(0, direct);
+  let clickedNode = iterateToNode(allMsgs[allMsgsPosition].index, parentIndices);
+  let children = new Array();
+  let lastIndex = clickedNode.index + 1;
+
+  setParentUnfolded(allMsgsPosition);
+  iterChildren(clickedNode, children, lastIndex, undefined);
+  let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex);
+  activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
+  let insertHtml = new Array();
+  for (let x = 0, m = children.length; x < m; x++) {
+    insertHtml.push(getMarkup(allMsgs[children[x] - allMsgs[0].index]));
+  }
+  // FIXME can cause stack overflow when huge number to insert circa 800,000
+  activeHtml.splice(activeIndex+1, 0, ...insertHtml);
+  activeMsgIndices.splice(activeIndex+1, 0, ...children);
+}
+
+function fold(clickedMsgIndex) {
+  let allMsgsPosition = clickedMsgIndex-allMsgs[0].index;
+  let direct = allMsgs[allMsgsPosition].level - minLevel;
+  let parentIndices = allMsgs[allMsgsPosition].parentIndices.slice(0, direct);
+  let clickedNode = iterateToNode(allMsgs[allMsgsPosition].index, parentIndices);
+  let children = new Array();
+  let lastIndex = clickedNode.index + 1;
+
+  iterChildren(clickedNode, children, lastIndex, undefined);
+  setParentFolded(allMsgsPosition);
+  let activeIndex = activeMsgIndices.indexOf(clickedMsgIndex);
+  activeHtml[activeIndex] = getMarkup(allMsgs[allMsgsPosition]);
+  activeIndex = activeMsgIndices.indexOf(children[0]);
+  activeHtml.splice(activeIndex, children.length);
+  activeMsgIndices.splice(activeIndex, children.length);
+}
+
+function iterChildren(node, indicesToInsert, startIndex, nodeFoldState) {
+  let parentNode = node;
+  let parentAllMsgsIndex = parentNode.index - allMsgs[0].index;
+  let parentNumOfChildren = allMsgs[parentAllMsgsIndex].numOfChildren;
+  let parentFoldState;
+  if (nodeFoldState === undefined) {
+    parentFoldState = allMsgs[parentAllMsgsIndex].foldState;
   } else {
-    currentNode = currentNode.firstChild;
-    children.push(currentNode);
-    findChildren(currentNode, children);
-    while (currentNode.nextSibling !== null) {
-      children.push(currentNode.nextSibling);
-      currentNode = currentNode.nextSibling;
-      findChildren(currentNode, children);
+    parentFoldState = nodeFoldState;
+  }
+  console.log('[' + parentNode.index + '] ' + 'Processing parent with index '
+    + parentNode.index + ' #children: ' + parentNumOfChildren + ' fold' +
+    ' state: ' + parentFoldState);
+
+  if (parentNode.firstChild === null) {
+    // Parent node doesn't have any children that are themselves parents.
+    // console.log('[' + parentNode.index + '] ' + 'no first child - returning');
+    let lastIndex = startIndex + allMsgs[parentNode.index - allMsgs[0].index].numOfChildren - 1;
+    if (!parentFoldState) {
+      // Parent is not folded so insert children
+      updateIndices(startIndex - 1, lastIndex, indicesToInsert);
     }
+    return lastIndex;
+  } else {
+    let childNode = parentNode.firstChild;
+    if (!parentFoldState) {
+      // Parent is not folded so insert children
+      updateIndices(parentNode.index, childNode.index, indicesToInsert);
+    }
+    // children.push(childNode);
+    let index = iterChildren(childNode, indicesToInsert, childNode.index + 1, undefined);
+
+    while (childNode.nextSibling !== null) {
+      if (!parentFoldState) {
+        // Parent is not folded so insert children
+        updateIndices(index, childNode.nextSibling.index, indicesToInsert);
+      }
+      // children.push(childNode.nextSibling);
+      childNode = childNode.nextSibling;
+      index = iterChildren(childNode, indicesToInsert, childNode.index + 1, undefined);
+    }
+    let remaining = parentNode.index + parentNumOfChildren - index;
+    if (remaining > 0) {
+      if (!parentFoldState) {
+        // Parent is not folded so insert children
+        updateIndices(index, index + remaining, indicesToInsert);
+      }
+    }
+    return index + remaining;
+  }
+}
+
+function updateIndices(index, maxIndex, indicesToInsert) {
+  for (let x = index + 1; x <= maxIndex; x++) {
+    indicesToInsert.push(x);
   }
 }
