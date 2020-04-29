@@ -12,7 +12,7 @@
     "clusterize.js": "^0.18.1",
     "console-stamp": "^0.2.6",
     "express": "^4.16.3",
-    "jquery": "^3.3.1",
+    "jquery": "^3.5.0",
     "ldapjs": "^1.0.2",
     "mongodb": "^3.1.6",
     "socket.io": "^2.1.1",
